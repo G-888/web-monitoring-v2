@@ -171,16 +171,8 @@ class CheckWebsiteJob implements ShouldQueue
     private function detectSeoPoisoning($content)
     {
         $patterns = [
-            'casino',
-            'viagra',
-            'porn',
-            'loan',
-            'betting',
-            'crypto',
-            'xxx',
-            'free money',
-            'earn cash',
-            'seo spam'
+            'casino', 'viagra', 'porn', 'loan', 'betting', 'crypto', 'xxx', 'free money', 'earn cash', 'seo spam',
+            'slot', 'pg slot', 'ฝากถอน', 'ไม่มีขั้นต่ำ', 'เว็บตรง', 'สล็อต'
         ];
 
         $found = [];
