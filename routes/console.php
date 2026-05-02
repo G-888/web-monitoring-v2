@@ -7,6 +7,13 @@ use Illuminate\Support\Facades\Schedule;
 // Run monitoring every minute
 Schedule::command('app:run-monitor-checks')->everyMinute();
 
+// SEO Poisoning Detection
+Schedule::command('app:run-seo-checks')->hourly();
+Schedule::command('app:run-internal-crawl')->daily();
+
+// File Integrity Monitoring
+Schedule::command('app:run-file-integrity-checks')->everyTenMinutes();
+
 // SSL renewal reminders daily
 Schedule::job(new \App\Jobs\SslRenewalReminderJob)->daily();
 
