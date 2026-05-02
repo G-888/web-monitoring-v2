@@ -170,11 +170,13 @@
                         datasets: [{
                             data: @json($monitor->recent_checks->pluck('response_time')),
                             borderColor: accentColor,
-                            backgroundColor: accentColor + '20',
-                            fill: true,
-                            tension: .4,
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            stepped: true, // Technical stepped style
+                            tension: 0,
                             pointRadius: 0,
-                            borderWidth: 2
+                            borderWidth: 2,
+                            borderJoinStyle: 'round'
                         }]
                     },
                     options: {
@@ -187,7 +189,11 @@
                                 display: false,
                                 suggestedMin: 0
                             } 
-                        }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index',
+                        },
                     }
                 });
             })();
