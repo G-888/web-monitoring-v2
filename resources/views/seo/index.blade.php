@@ -33,6 +33,25 @@
                     @else
                         <p class="text-sm text-green-700 dark:text-green-400">No security threats detected in the live content.</p>
                     @endif
+
+                    <div x-data="{ open: false }" class="mt-4 border-t border-black/5 dark:border-white/5 pt-4">
+                        <button @click="open = !open" type="button" class="text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 transition-colors flex items-center gap-1">
+                            <span x-text="open ? 'Hide Raw Response' : 'View Raw Response (Debug)'"></span>
+                            <svg class="h-3 w-3 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        
+                        <div x-show="open" class="mt-4 space-y-4" x-cloak>
+                            <div>
+                                <div class="text-[10px] font-bold text-slate-500 uppercase mb-2">HTTP Status: {{ session('manual_scan_result')['status_code'] }}</div>
+                                <div class="text-[10px] font-bold text-slate-500 uppercase mb-2">Response Headers</div>
+                                <pre class="p-3 bg-black/5 dark:bg-black/40 rounded-xl text-[10px] overflow-x-auto text-slate-600 dark:text-slate-400 font-mono">{{ json_encode(session('manual_scan_result')['raw_headers'], JSON_PRETTY_PRINT) }}</pre>
+                            </div>
+                            <div>
+                                <div class="text-[10px] font-bold text-slate-500 uppercase mb-2">Response Body (First 5k characters)</div>
+                                <pre class="p-3 bg-black/5 dark:bg-black/40 rounded-xl text-[10px] overflow-x-auto text-slate-600 dark:text-slate-400 font-mono">{{ session('manual_scan_result')['raw_body'] }}</pre>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             @endif
         </div>

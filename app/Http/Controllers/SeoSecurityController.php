@@ -41,7 +41,19 @@ class SeoSecurityController extends Controller
         ]);
 
         $url = $request->input('url');
+        
+        // Fetch with raw response to show headers
+        $response = Http::withHeaders([
+            'User-Agent' => 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+            'Referer' => 'https://www.google.com/'
+        ])->withoutVerifying()->get($url);
+
         $result = $service->scan($url);
+        
+        // Include raw debug info
+        $result['raw_headers'] = $response->headers();
+        $result['raw_body'] = substr($response->body(), 0, 5000); // First 5k chars
+        $result['status_code'] = $response->status();
 
         // We still save it as a "Manual Scan" result for history
         $scan = new SeoScan();
