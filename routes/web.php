@@ -92,6 +92,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/seo-security', [\App\Http\Controllers\SeoSecurityController::class, 'index'])
         ->name('seo-security.index');
 
+    Route::post('/seo-security/scan', [\App\Http\Controllers\SeoSecurityController::class, 'scan'])
+        ->name('seo-security.scan');
+
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
 

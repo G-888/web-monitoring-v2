@@ -2,6 +2,40 @@
     <x-slot name="header_title">SEO Security & Integrity</x-slot>
 
     <div class="space-y-8">
+        <!-- Manual Scan Form -->
+        <div class="glass rounded-3xl p-6 border border-slate-200 dark:border-white/10">
+            <h2 class="text-lg font-bold mb-4">Run Manual SEO Scan</h2>
+            <form action="{{ route('seo-security.scan') }}" method="POST" class="flex gap-4">
+                @csrf
+                <input type="url" name="url" placeholder="https://example.com" value="{{ old('url', $manual_url ?? '') }}" required 
+                    class="flex-1 rounded-2xl border-slate-200 dark:border-white/10 bg-white/5 px-4 py-2 text-sm focus:ring-orange-500 focus:border-orange-500">
+                <button type="submit" class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-orange-600/20">
+                    Scan URL
+                </button>
+            </form>
+
+            @if(session('manual_scan_result'))
+                <div class="mt-6 p-6 rounded-2xl {{ session('manual_scan_result')['status'] === 'clean' ? 'bg-green-50 dark:bg-green-500/10 border-green-200' : 'bg-red-50 dark:bg-red-500/10 border-red-200' }} border">
+                    <h3 class="font-bold mb-2">Scan Results for: {{ session('manual_url') }}</h3>
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-xs font-bold uppercase px-2 py-1 rounded-lg {{ session('manual_scan_result')['status'] === 'clean' ? 'bg-green-500 text-white' : 'bg-red-500 text-white' }}">
+                            {{ session('manual_scan_result')['status'] }}
+                        </span>
+                    </div>
+                    
+                    @if(!empty(session('manual_scan_result')['findings']))
+                        <div class="text-sm font-bold text-red-700 dark:text-red-400 mb-2">Findings:</div>
+                        <ul class="list-disc list-inside text-xs space-y-1">
+                            @foreach(session('manual_scan_result')['findings'] as $finding)
+                                <li>{{ $finding }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="text-sm text-green-700 dark:text-green-400">No security threats detected in the live content.</p>
+                    @endif
+                </div>
+            @endif
+        </div>
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="glass rounded-3xl p-6 border border-slate-200 dark:border-white/10">
@@ -61,7 +95,7 @@
                     <tbody class="divide-y divide-red-200 dark:divide-red-500/10">
                         @foreach($suspiciousScans as $scan)
                         <tr class="text-sm">
-                            <td class="px-6 py-4 font-bold">{{ $scan->monitor->name }}</td>
+                            <td class="px-6 py-4 font-bold">{{ $scan->monitor?->name ?? 'Manual Scan' }}</td>
                             <td class="px-6 py-4">
                                 <span class="px-2 py-1 rounded-lg bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 font-bold text-[10px]">
                                     {{ str_contains(implode('', $scan->findings ?? []), 'CLOAKING') ? 'CLOAKING' : 'INJECTION/SPAM' }}
@@ -91,7 +125,7 @@
                             @foreach($recentScans as $scan)
                             <tr class="text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                 <td class="px-6 py-4">
-                                    <div class="font-bold">{{ $scan->monitor->name }}</div>
+                                    <div class="font-bold">{{ $scan->monitor?->name ?? 'Manual Scan' }}</div>
                                     <div class="text-xs text-slate-500 truncate max-w-xs">{{ $scan->url }}</div>
                                 </td>
                                 <td class="px-6 py-4 text-right">
