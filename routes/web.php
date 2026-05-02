@@ -111,6 +111,30 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/', [AdminController::class, 'index'])
                 ->name('admin.dashboard');
 
+            Route::get('/email-settings', [AdminController::class, 'emailSettings'])
+                ->name('admin.email-settings');
+
+            Route::post('/email-settings', [AdminController::class, 'updateEmailSettings'])
+                ->name('admin.email-settings.update');
+
+            Route::post('/email-settings/test', [AdminController::class, 'testEmailSettings'])
+                ->name('admin.email-settings.test');
+
+            Route::get('/telegram-settings', [AdminController::class, 'telegramSettings'])
+                ->name('admin.telegram-settings');
+
+            Route::post('/telegram-settings', [AdminController::class, 'updateTelegramSettings'])
+                ->name('admin.telegram-settings.update');
+
+            Route::post('/telegram-settings/fetch-chat-id', [AdminController::class, 'fetchTelegramChatId'])
+                ->name('admin.telegram-settings.fetchChatId');
+
+            Route::post('/telegram-settings/clear-updates', [AdminController::class, 'clearTelegramUpdates'])
+                ->name('admin.telegram-settings.clearUpdates');
+
+            Route::post('/telegram-settings/test', [AdminController::class, 'testTelegramSettings'])
+                ->name('admin.telegram-settings.test');
+
             Route::post('/monitors/{monitor}/toggle', [AdminController::class, 'toggleMonitor'])
                 ->name('admin.monitors.toggle');
 

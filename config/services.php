@@ -31,6 +31,10 @@ return [
         ],
     ],
 
+    'telegram' => [
+        'verify_ssl' => filter_var(env('TELEGRAM_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
+    ],
+
     'seo_search' => [
         'enabled' => env('SEO_SEARCH_ENABLED', false),
         'providers' => array_filter(array_map('trim', explode(',', env('SEO_SEARCH_PROVIDERS', 'commoncrawl,wayback,urlscan,crtsh,google,brave')))),

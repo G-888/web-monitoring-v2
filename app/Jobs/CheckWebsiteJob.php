@@ -17,6 +17,7 @@ use App\Mail\MonitorDown;
 use App\Mail\MonitorRecovered;
 
 use App\Events\MonitorChecked;
+use App\Jobs\SendTelegramNotification;
 
 class CheckWebsiteJob implements ShouldQueue
 {
@@ -273,6 +274,15 @@ class CheckWebsiteJob implements ShouldQueue
                 } catch (\Throwable $e) {
                     Log::error('Failed to send ' . $channel->type . ' alert for monitor ' . $this->monitor->id . ': ' . $e->getMessage());
                 }
+            } elseif ($channel->type === 'telegram') {
+                $title = $status === 'down' ? '🔴 Monitor DOWN' : '🟢 Monitor UP';
+                $message = "<b>{$title}</b>\n\n" .
+                          "<b>Monitor:</b> {$this->monitor->name}\n" .
+                          "<b>URL:</b> {$this->monitor->url}\n" .
+                          "<b>Status:</b> " . ucfirst($status) . "\n" .
+                          "<b>Time:</b> " . now()->format('Y-m-d H:i:s');
+
+                SendTelegramNotification::dispatch($message);
             }
         }
     }

@@ -5,9 +5,13 @@ namespace App\Http\Controllers;
 use App\Jobs\CheckWebsiteJob;
 use App\Models\Monitor;
 use App\Models\User;
+use App\Models\EmailSetting;
+use App\Models\TelegramSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Mail;
+use App\Services\TelegramService;
 
 class AdminController extends Controller
 {
@@ -131,5 +135,178 @@ class AdminController extends Controller
         $user->syncPermissions($request->permissions ?? []);
 
         return back()->with('success', 'User permissions updated successfully.');
+    }
+
+    public function emailSettings(): View
+    {
+        $emailSetting = EmailSetting::first();
+
+        if (!$emailSetting) {
+            $emailSetting = new EmailSetting([
+                'mailer' => 'smtp',
+                'port' => 587,
+                'encryption' => 'tls',
+                'is_active' => false,
+            ]);
+        }
+
+        return view('admin.email-settings', compact('emailSetting'));
+    }
+
+    public function updateEmailSettings(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'mailer' => 'required|in:smtp,sendmail,log',
+            'host' => 'required_if:mailer,smtp|nullable|string',
+            'port' => 'required_if:mailer,smtp|nullable|integer|min:1|max:65535',
+            'encryption' => 'nullable|in:tls,ssl',
+            'username' => 'nullable|string',
+            'password' => 'nullable|string',
+            'from_address' => 'required|email',
+            'from_name' => 'required|string|max:255',
+            'is_active' => 'boolean',
+        ]);
+
+        $emailSetting = EmailSetting::first();
+
+        if (!$emailSetting) {
+            $emailSetting = new EmailSetting();
+        }
+
+        $emailSetting->fill($request->only([
+            'mailer', 'host', 'port', 'encryption', 'username', 'password',
+            'from_address', 'from_name', 'is_active'
+        ]));
+
+        $emailSetting->save();
+
+        return back()->with('success', 'Email settings updated successfully.');
+    }
+
+    public function testEmailSettings(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'test_email' => 'required|email',
+        ]);
+
+        try {
+            $emailSetting = EmailSetting::getActive();
+
+            if (!$emailSetting) {
+                return back()->with('error', 'No active email settings found. Please configure and activate email settings first.');
+            }
+
+            // Temporarily update mail config
+            config(['mail' => array_merge(config('mail'), $emailSetting->toMailConfig())]);
+
+            Mail::raw('This is a test email from WebMonitor. If you received this, your email configuration is working correctly!', function ($message) use ($request) {
+                $message->to($request->test_email)
+                        ->subject('WebMonitor Email Test');
+            });
+
+            return back()->with('success', 'Test email sent successfully! Check your inbox.');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to send test email: ' . $e->getMessage());
+        }
+    }
+
+    public function telegramSettings(): View
+    {
+        $telegramSetting = TelegramSetting::first();
+
+        if (!$telegramSetting) {
+            $telegramSetting = new TelegramSetting([
+                'is_active' => false,
+            ]);
+        }
+
+        return view('admin.telegram-settings', compact('telegramSetting'));
+    }
+
+    public function updateTelegramSettings(Request $request): RedirectResponse
+    {
+        $request->merge([
+            'bot_token' => $request->input('bot_token') ? trim($request->input('bot_token')) : null,
+            'chat_id' => $request->input('chat_id') ? trim($request->input('chat_id')) : null,
+        ]);
+
+        $request->validate([
+            'bot_token' => 'nullable|string|max:255',
+            'chat_id' => 'nullable|string|max:255',
+            'is_active' => 'boolean',
+        ]);
+
+        $telegramSetting = TelegramSetting::first();
+
+        if (!$telegramSetting) {
+            $telegramSetting = new TelegramSetting();
+        }
+
+        $telegramSetting->fill($request->only(['bot_token', 'chat_id', 'is_active']));
+        $telegramSetting->save();
+
+        return back()->with('success', 'Telegram settings updated successfully.');
+    }
+    public function fetchTelegramChatId(Request $request): RedirectResponse
+    {
+        $request->merge([
+            'bot_token' => $request->input('bot_token') ? trim($request->input('bot_token')) : null,
+        ]);
+
+        $request->validate([
+            'bot_token' => 'nullable|string|max:255',
+        ]);
+
+        $telegramSetting = TelegramSetting::first() ?? new TelegramSetting();
+        if ($request->bot_token) {
+            $telegramSetting->bot_token = $request->bot_token;
+        }
+
+        $telegramService = new TelegramService($telegramSetting);
+        $result = $telegramService->fetchChatIdFromUpdates();
+
+        if ($result['success']) {
+            return back()
+                ->with('success', $result['message'])
+                ->withInput(['bot_token' => $request->bot_token, 'chat_id' => $result['chat_id']]);
+        }
+
+        return back()->with('error', $result['message'])->withInput(['bot_token' => $request->bot_token]);
+    }
+
+    public function clearTelegramUpdates(Request $request): RedirectResponse
+    {
+        $request->merge([
+            'bot_token' => $request->input('bot_token') ? trim($request->input('bot_token')) : null,
+        ]);
+
+        $request->validate([
+            'bot_token' => 'nullable|string|max:255',
+        ]);
+
+        $telegramSetting = TelegramSetting::first() ?? new TelegramSetting();
+        if ($request->bot_token) {
+            $telegramSetting->bot_token = $request->bot_token;
+        }
+
+        $telegramService = new TelegramService($telegramSetting);
+        $result = $telegramService->clearFetchedUpdates();
+
+        return back()
+            ->with($result['success'] ? 'success' : 'error', $result['message'])
+            ->withInput(['bot_token' => $request->bot_token, 'chat_id' => old('chat_id')]);
+    }
+
+    public function testTelegramSettings(): RedirectResponse
+    {
+        $telegramService = new TelegramService();
+        $result = $telegramService->testConnection();
+
+        if ($result['success']) {
+            return back()->with('success', $result['message']);
+        } else {
+            return back()->with('error', $result['message']);
+        }
     }
 }

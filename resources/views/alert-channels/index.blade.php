@@ -25,12 +25,13 @@
                             <select name="type" required class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all">
                                 <option value="slack">Slack Webhook</option>
                                 <option value="discord">Discord Webhook</option>
+                                <option value="telegram">Telegram Chat ID</option>
                                 <option value="email">Email</option>
                             </select>
                         </div>
                         <div class="flex-1">
                             <label class="block text-sm font-bold mb-2">Endpoint URL / Email</label>
-                            <input type="text" name="endpoint" required placeholder="https://hooks.slack.com/... or email@example.com" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all">
+                            <input type="text" name="endpoint" required placeholder="https://hooks.slack.com/... or email@example.com or chat ID" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all">
                         </div>
                         <div>
                             <button type="submit" class="h-[42px] px-6 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition-colors">

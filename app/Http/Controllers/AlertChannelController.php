@@ -18,7 +18,7 @@ class AlertChannelController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:slack,discord,email',
+            'type' => 'required|in:slack,discord,email,telegram',
             'endpoint' => 'required|string|max:255',
         ]);
 
