@@ -14,7 +14,8 @@ class SeoScannerService
     ];
 
     protected array $spamKeywords = [
-        'viagra', 'cialis', 'levitra', 'casino', 'gambling', 'poker', 'slots', 'betting', 'weight loss', 'cheap pharmacy'
+        'viagra', 'cialis', 'levitra', 'casino', 'gambling', 'poker', 'slots', 'betting', 'weight loss', 'cheap pharmacy',
+        'slot', 'pg slot', 'ฝากถอน', 'ไม่มีขั้นต่ำ', 'เว็บตรง', 'สล็อต'
     ];
 
     /**
