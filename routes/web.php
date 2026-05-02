@@ -89,6 +89,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ssl-conversion', [SslConversionController::class, 'convert'])
         ->name('ssl-conversion.convert');
 
+    Route::get('/seo-security', [\App\Http\Controllers\SeoSecurityController::class, 'index'])
+        ->name('seo-security.index');
+
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
 
