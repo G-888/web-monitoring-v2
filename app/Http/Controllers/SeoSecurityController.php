@@ -31,6 +31,9 @@ class SeoSecurityController extends Controller
             ->limit(20)
             ->get();
 
+        return view('seo.index', compact('recentScans', 'suspiciousScans', 'discoveredPages', 'fileChanges'));
+    }
+
     public function scan(Request $request, \App\Services\SeoScannerService $service)
     {
         $request->validate([
