@@ -27,17 +27,33 @@
 
         @if(session('manual_asset_result'))
             <div class="bg-slate-900 rounded-[2rem] p-8 border border-blue-500/30 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500">
-                <h3 class="text-xl font-bold text-white mb-6">Discovery Results: {{ session('manual_asset_result')['domain'] }}</h3>
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="text-xl font-bold text-white">Discovery Results: {{ session('manual_asset_result')['domain'] }}</h3>
+                    @if(isset(session('manual_asset_result')['fingerprint']))
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 rounded-lg bg-blue-500 text-white text-[10px] font-black uppercase">Server: {{ session('manual_asset_result')['fingerprint']['server'] ?? 'N/A' }}</span>
+                            <span class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 text-[10px] font-black uppercase">Tech: {{ session('manual_asset_result')['fingerprint']['powered_by'] ?? 'N/A' }}</span>
+                        </div>
+                    @endif
+                </div>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div>
-                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">DNS Records Found</div>
-                        <div class="space-y-2">
+                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Network & DNS</div>
+                        <div class="space-y-3">
                             @foreach(session('manual_asset_result')['dns'] as $record)
-                                <div class="p-3 bg-white/5 rounded-xl border border-white/5 flex items-center justify-between">
-                                    <span class="text-[10px] font-black text-blue-400 uppercase w-12">{{ $record['type'] }}</span>
-                                    <span class="text-xs text-white truncate px-4 flex-1">{{ $record['host'] ?? '' }}</span>
-                                    <span class="text-[10px] text-slate-500 font-mono">{{ $record['ip'] ?? $record['target'] ?? '' }}</span>
+                                <div class="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">{{ $record['type'] }}</span>
+                                        <span class="text-[9px] text-slate-500 font-mono">{{ $record['ttl'] ?? '' }} TTL</span>
+                                    </div>
+                                    <div class="text-xs text-white font-bold mb-1 truncate">{{ $record['ip'] ?? $record['target'] ?? '' }}</div>
+                                    @if(isset($record['geo']))
+                                        <div class="text-[9px] text-slate-400 flex items-center gap-2">
+                                            <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                                            {{ $record['geo']['city'] ?? '' }}, {{ $record['geo']['country'] ?? '' }} ({{ $record['geo']['isp'] ?? '' }})
+                                        </div>
+                                    @endif
                                 </div>
                             @endforeach
                         </div>
@@ -46,10 +62,34 @@
                         <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Discovered Subdomains</div>
                         <div class="grid grid-cols-1 gap-2">
                             @foreach(session('manual_asset_result')['subdomains'] as $sub)
-                                <div class="p-3 bg-white/5 rounded-xl border border-white/5 text-xs text-slate-300 font-mono">
+                                <div class="p-3 bg-white/5 rounded-xl border border-white/5 text-xs text-slate-300 font-mono flex items-center justify-between">
                                     {{ $sub }}
+                                    <svg class="h-3 w-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                 </div>
                             @endforeach
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Security Posture</div>
+                        <div class="space-y-3">
+                            @if(isset(session('manual_asset_result')['fingerprint']['security']))
+                                @foreach(session('manual_asset_result')['fingerprint']['security'] as $key => $passed)
+                                    <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ str_replace('_', ' ', strtoupper($key)) }}</span>
+                                        @if($passed)
+                                            <span class="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1">
+                                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                                PASSED
+                                            </span>
+                                        @else
+                                            <span class="text-[9px] font-black text-red-500 uppercase flex items-center gap-1">
+                                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                MISSING
+                                            </span>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            @endif
                         </div>
                     </div>
                 </div>

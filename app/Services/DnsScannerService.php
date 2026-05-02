@@ -3,26 +3,26 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use App\Models\DnsRecord;
-use App\Models\DiscoveredSubdomain;
 use Illuminate\Support\Facades\Log;
 
 class DnsScannerService
 {
     /**
-     * Scan for DNS records of a given domain.
+     * Scan for DNS records and IP Intelligence.
      */
     public function scanDns($input)
     {
-        // Check if input is an IP address
         if (filter_var($input, FILTER_VALIDATE_IP)) {
             $hostname = @gethostbyaddr($input);
+            $geo = $this->getIpMetadata($input);
+            
             return [
                 [
                     'type' => 'PTR (Reverse DNS)',
                     'host' => $input,
                     'target' => $hostname ?: 'No PTR record found',
-                    'ip' => $input
+                    'ip' => $input,
+                    'geo' => $geo
                 ]
             ];
         }
@@ -31,9 +31,15 @@ class DnsScannerService
         $results = [];
 
         foreach ($types as $type) {
-            $records = @dns_get_record($domain, $type);
+            $records = @dns_get_record($input, $type);
             if ($records) {
-                $results = array_merge($results, $records);
+                foreach($records as $r) {
+                    // Enrich A records with Geo
+                    if ($r['type'] === 'A') {
+                        $r['geo'] = $this->getIpMetadata($r['ip']);
+                    }
+                    $results[] = $r;
+                }
             }
         }
 
@@ -41,16 +47,14 @@ class DnsScannerService
     }
 
     /**
-     * Discover subdomains using Certificate Transparency (crt.sh).
+     * Discover subdomains and fingerprint their technology.
      */
     public function discoverSubdomains($domain)
     {
-        if (filter_var($domain, FILTER_VALIDATE_IP)) {
-            return [];
-        }
+        if (filter_var($domain, FILTER_VALIDATE_IP)) return [];
 
         $domain = $this->cleanDomain($domain);
-        $subdomains = [];
+        $discovered = [];
 
         try {
             $response = Http::timeout(15)->get("https://crt.sh/?q=%.{$domain}&output=json");
@@ -62,57 +66,57 @@ class DnsScannerService
                     foreach ($names as $name) {
                         $name = strtolower(trim($name));
                         if (str_ends_with($name, $domain) && $name !== $domain) {
-                            $subdomains[] = $name;
+                            $discovered[] = $name;
                         }
                     }
                 }
             }
         } catch (\Exception $e) {
-            Log::error("Subdomain discovery failed for {$domain}: " . $e->getMessage());
+            Log::error("Subdomain discovery failed: " . $e->getMessage());
         }
 
-        return array_unique($subdomains);
+        return array_unique($discovered);
     }
 
     /**
-     * Check for DNS changes compared to baseline.
+     * Fingerprint technology and headers.
      */
-    public function detectChanges($monitorId, $newRecords)
+    public function fingerprint($url)
     {
-        $changes = [];
-        
-        foreach ($newRecords as $record) {
-            $type = $record['type'];
-            $host = $record['host'] ?? '';
-            $value = $this->getRecordValue($record);
-            $hash = md5($type . $host . $value);
+        if (!str_starts_with($url, 'http')) $url = "http://" . $url;
 
-            $exists = \DB::table('dns_records')
-                ->where('monitor_id', $monitorId)
-                ->where('hash', $hash)
-                ->exists();
+        try {
+            $response = Http::timeout(5)->withoutVerifying()->get($url);
+            $headers = $response->headers();
 
-            if (!$exists) {
-                $changes[] = [
-                    'type' => $type,
-                    'host' => $host,
-                    'value' => $value,
-                    'change_type' => 'NEW_OR_MODIFIED'
-                ];
-            }
+            return [
+                'server' => $headers['Server'][0] ?? 'Unknown',
+                'powered_by' => $headers['X-Powered-By'][0] ?? 'Unknown',
+                'security' => [
+                    'hsts' => isset($headers['Strict-Transport-Security']),
+                    'csp' => isset($headers['Content-Security-Policy']),
+                    'x_frame' => isset($headers['X-Frame-Options']),
+                ]
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Could not fingerprint'];
         }
-
-        return $changes;
     }
 
-    private function getRecordValue($record)
+    /**
+     * Get GeoIP and ASN metadata.
+     */
+    public function getIpMetadata($ip)
     {
-        return match($record['type']) {
-            'A', 'AAAA' => $record['ip'],
-            'MX', 'NS', 'CNAME' => $record['target'],
-            'TXT' => $record['txt'] ?? '',
-            default => serialize($record)
-        };
+        try {
+            $response = Http::timeout(5)->get("http://ip-api.com/json/{$ip}?fields=status,country,city,isp,as,org");
+            if ($response->successful()) {
+                return $response->json();
+            }
+        } catch (\Exception $e) {
+            return null;
+        }
+        return null;
     }
 
     private function cleanDomain($url)

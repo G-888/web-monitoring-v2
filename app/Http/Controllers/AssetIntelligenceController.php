@@ -35,12 +35,14 @@ class AssetIntelligenceController extends Controller
 
         $records = $service->scanDns($domain);
         $subdomains = $service->discoverSubdomains($domain);
+        $fingerprint = $service->fingerprint($domain);
 
         return back()->with([
             'manual_asset_result' => [
                 'dns' => $records,
                 'subdomains' => $subdomains,
                 'domain' => $domain,
+                'fingerprint' => $fingerprint,
                 'is_ip' => filter_var($domain, FILTER_VALIDATE_IP)
             ]
         ]);
