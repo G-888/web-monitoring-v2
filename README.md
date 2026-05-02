@@ -47,21 +47,38 @@ docker-compose exec app bash docker-init.sh
 
 ## 🛠️ Local Development Setup
 
-### 1. Install dependencies
+### 1. Install backend dependencies
+From the project root:
 ```bash
 composer install
 npm install
 ```
 
 ### 2. Configure environment
+Copy the example environment file and generate an app key:
 ```bash
 copy .env.example .env
 php artisan key:generate
 ```
 
+Update `.env` with your database and queue settings. At minimum, set:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=your_database
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
+
 ### 3. Build frontend assets
+This project uses Vite for CSS and JavaScript. To build static assets once:
 ```bash
 npm run build
+```
+For development with live reload:
+```bash
+npm run dev
 ```
 
 ### 4. Run database migrations
@@ -69,12 +86,13 @@ npm run build
 php artisan migrate
 ```
 
-### 5. Start the services
-```bash
-php artisan serve
-php artisan reverb:start
-php artisan queue:work
-```
+### 5. Start the Services
+Open separate terminal windows and run:
+- **Web Server**: `php artisan serve`
+- **WebSocket**: `php artisan reverb:start`
+- **Queue Worker**: `php artisan queue:work`
+
+Then open: `http://127.0.0.1:8000`
 
 ---
 
