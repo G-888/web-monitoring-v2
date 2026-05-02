@@ -102,26 +102,41 @@ class DnsScannerService
         ];
 
         $discovered = [];
+        $activity = [];
         foreach ($paths as $path => $description) {
             try {
                 $response = Http::timeout(0.5)->withoutVerifying()->get($url . $path);
                 
                 // 2. Validate: Ignore if it matches the baseline "Fake" path
-                if ($response->successful() && $baselineStatus === 200) {
-                    if ($response->body() === $baselineBody) continue;
-                }
+                $isFalsePositive = ($response->successful() && $baselineStatus === 200 && $response->body() === $baselineBody);
 
-                if ($response->successful() || $response->status() === 403) {
+                $activity[] = [
+                    'path' => $path,
+                    'status' => $response->status(),
+                    'result' => $isFalsePositive ? 'Filtered (Matches Error Page)' : ($response->successful() ? 'EXPOSED' : 'Secure'),
+                    'severity' => $isFalsePositive ? 'info' : ($response->successful() ? 'critical' : 'success')
+                ];
+
+                if ($response->successful() && !$isFalsePositive) {
                     $discovered[] = [
                         'path' => $path,
                         'description' => $description,
                         'status' => $response->status(),
-                        'severity' => $response->successful() ? 'CRITICAL' : 'WARNING'
+                        'severity' => 'CRITICAL'
+                    ];
+                } elseif ($response->status() === 403) {
+                    $discovered[] = [
+                        'path' => $path,
+                        'description' => $description,
+                        'status' => $response->status(),
+                        'severity' => 'WARNING'
                     ];
                 }
-            } catch (\Exception $e) {}
+            } catch (\Exception $e) {
+                $activity[] = ['path' => $path, 'status' => 'Timeout', 'result' => 'Failed to connect', 'severity' => 'info'];
+            }
         }
-        return $discovered;
+        return ['discovered' => $discovered, 'activity' => $activity];
     }
 
     public function getSeoIntelligence($url)

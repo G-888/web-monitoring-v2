@@ -173,23 +173,27 @@
                     </div>
                 </div>
 
-                <!-- 4. Relationship Map (Full Width) -->
-                <div class="col-span-12 bg-[#111418] rounded-[2rem] p-10 border border-white/5">
-                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-8 text-center">Infrastructure Relationship Topology</div>
-                    <div class="flex justify-center overflow-hidden">
-                        <pre class="mermaid">
-graph LR
-    Main["{{ $res['domain'] }}"]
-    Main --> DNS["DNS Cluster"]
-    @foreach($res['dns'] as $record)
-        @if($record['type'] === 'A')
-            DNS --> IP_{{ str_replace('.', '_', $record['ip']) }}["IP: {{ $record['ip'] }} ({{ $record['geo']['country'] ?? 'Unknown' }})"]
-        @endif
-    @endforeach
-    @foreach(array_slice($res['subdomains'], 0, 5) as $sub)
-        Main --> Sub_{{ md5($sub) }}["{{ $sub }}"]
-    @endforeach
-                        </pre>
+                <!-- 6. Forensic Activity Log (PROOF OF WORK) -->
+                <div class="col-span-12 bg-[#0b0e14] rounded-[2rem] p-8 border border-white/5">
+                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center justify-between">
+                        <span>Forensic Activity Log</span>
+                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase">Live Probing Logs</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @foreach(($res['activity_log'] ?? []) as $log)
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-white/[0.01] border border-white/5">
+                                <div class="flex items-center gap-3 truncate">
+                                    <span class="text-[9px] font-mono text-slate-600">{{ $log['status'] }}</span>
+                                    <span class="text-[10px] text-white font-mono truncate">{{ $log['path'] }}</span>
+                                </div>
+                                <span class="text-[8px] font-black px-1.5 py-0.5 rounded
+                                    @if($log['severity'] === 'critical') bg-red-500 text-white
+                                    @elseif($log['severity'] === 'success') bg-emerald-500 text-white
+                                    @else bg-slate-800 text-slate-500 @endif">
+                                    {{ $log['result'] }}
+                                </span>
+                            </div>
+                        @endforeach
                     </div>
                 </div>
             </div>
