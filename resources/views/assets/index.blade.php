@@ -1,229 +1,251 @@
 <x-app-layout>
-    <x-slot name="header_title">Advanced Asset Intelligence</x-slot>
+    <x-slot name="header_title">Cyber SOC Dashboard</x-slot>
 
-    <div class="max-w-[1650px] mx-auto space-y-6 pb-20 px-6 pt-6 font-sans">
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <div class="max-w-[1700px] mx-auto space-y-6 pb-20 px-6 pt-6 font-sans">
         
-        <!-- Command Header (Sleek) -->
-        <div class="bg-[#0b0e14] p-8 rounded-[2rem] border border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-2xl">
-            <div class="flex items-center gap-4">
-                <div class="h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-                    <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <!-- Command Header -->
+        <div class="bg-[#0b0e14] p-8 rounded-[2rem] border border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-20">
+                <div class="flex gap-2">
+                    <span class="h-1 w-8 bg-blue-600 rounded-full animate-pulse"></span>
+                    <span class="h-1 w-4 bg-slate-800 rounded-full"></span>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-2xl shadow-blue-600/30">
+                    <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-black text-white tracking-tight">Asset Recon</h1>
-                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">Infrastructure, DNS & Content Intelligence</p>
+                    <h1 class="text-3xl font-black text-white tracking-tighter">Security Operations Center</h1>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Infrastructure Intelligence Matrix</p>
                 </div>
             </div>
             <form action="{{ route('assets.scan') }}" method="POST" class="flex items-center gap-2">
                 @csrf
                 <input type="text" name="url" placeholder="Domain or IP Address..." required 
-                    class="w-full lg:w-96 rounded-xl border-none bg-white/5 px-4 py-3 text-sm text-white focus:ring-1 focus:ring-blue-500 placeholder:text-slate-700">
-                <button type="submit" class="px-6 py-3 bg-white text-black hover:bg-blue-600 hover:text-white text-xs font-black rounded-xl transition-all active:scale-95">
-                    SCAN
+                    class="w-full lg:w-96 rounded-2xl border-none bg-white/5 px-6 py-4 text-sm text-white focus:ring-2 focus:ring-blue-500 placeholder:text-slate-700 font-bold transition-all">
+                <button type="submit" class="px-8 py-4 bg-white text-black hover:bg-blue-600 hover:text-white text-xs font-black rounded-2xl transition-all shadow-xl active:scale-95">
+                    INITIATE SCAN
                 </button>
             </form>
         </div>
 
         @if(session('manual_asset_result'))
             @php $res = session('manual_asset_result'); @endphp
-            <div class="grid grid-cols-12 gap-6 animate-in fade-in zoom-in duration-300">
+            <div class="grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 
-                <!-- 1. Identity & Network (Column 1-4) -->
-                <div class="col-span-12 lg:col-span-4 space-y-6">
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5 h-full">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6">Network Identity</div>
-                        <div class="space-y-6">
-                            <div>
-                                <h3 class="text-3xl font-black text-white truncate tracking-tighter">{{ $res['domain'] }}</h3>
-                                <div class="mt-4 flex flex-wrap gap-1.5">
-                                    <span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 text-[9px] font-black uppercase">{{ $res['fingerprint']['server'] ?? 'Server N/A' }}</span>
-                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase">{{ $res['fingerprint']['cms'] ?? 'Custom Tech' }}</span>
+                <!-- 1. AI Security Grade (Bento) -->
+                <div class="col-span-12 lg:col-span-3">
+                    <div class="bg-slate-900 rounded-[2rem] p-8 border border-white/5 h-full relative overflow-hidden group">
+                        <div class="absolute -bottom-10 -right-10 h-40 w-40 bg-blue-600/10 rounded-full blur-3xl group-hover:bg-blue-600/20 transition-all"></div>
+                        <div class="relative z-10">
+                            <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8">AI Risk Grade</div>
+                            <div class="flex flex-col items-center justify-center py-4">
+                                <div class="text-7xl font-black {{ $res['security_audit']['grade'] == 'A+' ? 'text-emerald-500' : ($res['security_audit']['grade'] == 'F' ? 'text-red-500' : 'text-blue-500') }} tracking-tighter drop-shadow-2xl">
+                                    {{ $res['security_audit']['grade'] }}
                                 </div>
+                                <div class="text-xs font-black text-white mt-4 uppercase tracking-widest">{{ $res['security_audit']['score'] }} / 100</div>
                             </div>
-                            
-                            <!-- ASN / Geo Details -->
-                            <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                            <div class="mt-8 space-y-2">
+                                @foreach(array_slice($res['security_audit']['findings'], 0, 3) as $finding)
+                                    <div class="text-[9px] text-slate-400 flex items-start gap-2">
+                                        <span class="h-1 w-1 mt-1 rounded-full bg-blue-500 shrink-0"></span>
+                                        {{ $finding }}
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Global Threat Map (Bento) -->
+                <div class="col-span-12 lg:col-span-6">
+                    <div class="bg-slate-900 rounded-[2rem] border border-white/5 h-[450px] overflow-hidden relative shadow-2xl">
+                        <div id="map" class="h-full w-full grayscale-[0.8] brightness-[0.7] contrast-[1.2]"></div>
+                        <div class="absolute bottom-4 left-4 z-[1000] p-4 bg-slate-950/80 backdrop-blur rounded-2xl border border-white/5">
+                            <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Geo-Intelligence</div>
+                            <div class="flex items-center gap-4">
                                 @foreach($res['dns'] as $record)
                                     @if(isset($record['geo']))
-                                        <div class="space-y-2">
+                                        <div class="text-[10px] text-white font-bold">
+                                            <span class="text-blue-400 mr-1">{{ $record['geo']['country'] ?? '' }}</span>
+                                            {{ $record['geo']['city'] ?? '' }}
+                                        </div>
+                                        @break
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Network Identity (Bento) -->
+                <div class="col-span-12 lg:col-span-3">
+                    <div class="bg-slate-900 rounded-[2rem] p-8 border border-white/5 h-full">
+                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Infras Profile</div>
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-2xl font-black text-white truncate tracking-tighter">{{ $res['domain'] }}</h3>
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    <span class="px-3 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-black uppercase">{{ $res['fingerprint']['server'] ?? 'Unknown' }}</span>
+                                    <span class="px-3 py-1 rounded-lg bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase">{{ $res['fingerprint']['cms'] ?? 'Custom' }}</span>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                @foreach($res['dns'] as $record)
+                                    @if(isset($record['geo']))
+                                        <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
                                             <div class="flex items-center justify-between">
-                                                <span class="text-[9px] font-bold text-slate-500 uppercase">Provider</span>
-                                                <span class="text-[10px] text-white font-black truncate max-w-[150px]">{{ $record['geo']['isp'] ?? 'Unknown' }}</span>
+                                                <span class="text-[9px] font-bold text-slate-600 uppercase">Provider</span>
+                                                <span class="text-[10px] text-white font-black truncate max-w-[120px]">{{ $record['geo']['isp'] ?? 'Unknown' }}</span>
                                             </div>
                                             <div class="flex items-center justify-between">
-                                                <span class="text-[9px] font-bold text-slate-500 uppercase">ASN</span>
-                                                <span class="text-[10px] text-blue-400 font-black">{{ $record['geo']['as'] ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="flex items-center justify-between">
-                                                <span class="text-[9px] font-bold text-slate-500 uppercase">Locality</span>
-                                                <span class="text-[10px] text-white font-black">{{ $record['geo']['city'] ?? '' }}, {{ $record['geo']['country'] ?? '' }}</span>
+                                                <span class="text-[9px] font-bold text-slate-600 uppercase">AS Number</span>
+                                                <span class="text-[10px] text-blue-500 font-black">{{ explode(' ', $record['geo']['as'] ?? 'N/A')[0] }}</span>
                                             </div>
                                         </div>
                                         @break
                                     @endif
                                 @endforeach
                             </div>
-
-                            <!-- Reputation -->
-                            <div class="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
-                                <span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Global Reputation</span>
-                                <span class="text-[9px] font-black text-white px-2 py-0.5 bg-emerald-500 rounded shadow-lg shadow-emerald-500/20">CLEAN</span>
-                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 4. Security Hygiene & Vulnerability Surface (Column 5-8) -->
-                <div class="col-span-12 lg:col-span-4 space-y-6">
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6">Security & Hygiene Audit</div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-2">
-                                @foreach(($res['fingerprint']['security'] ?? []) as $key => $passed)
-                                    <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/5">
-                                        <span class="text-[8px] font-bold text-slate-500 uppercase">{{ $key }}</span>
-                                        <span class="text-[8px] font-black {{ $passed ? 'text-emerald-500' : 'text-red-500' }}">{{ $passed ? 'OK' : 'MISS' }}</span>
-                                    </div>
-                                @endforeach
+                <!-- 4. Security Hygiene & Vulnerabilities (Full Row) -->
+                <div class="col-span-12 lg:col-span-4 bg-slate-900 rounded-[2rem] p-8 border border-white/5">
+                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Hygiene Audit</div>
+                    <div class="space-y-3">
+                        @foreach(($res['fingerprint']['security'] ?? []) as $key => $passed)
+                            <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ $key }}</span>
+                                @if($passed)
+                                    <span class="text-[9px] font-black text-emerald-500 uppercase">PASS</span>
+                                @else
+                                    <span class="text-[9px] font-black text-red-500 uppercase">FAIL</span>
+                                @endif
                             </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <div class="text-[8px] font-black text-slate-600 uppercase">Issuer</div>
-                                    <div class="text-[11px] text-white font-bold truncate">{{ $res['ssl_audit']['issuer'] ?? 'N/A' }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-[8px] font-black text-slate-600 uppercase">SSL Valid To</div>
-                                    <div class="text-[11px] text-orange-500 font-bold">{{ $res['ssl_audit']['valid_to'] ?? 'N/A' }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5 border-red-500/10">
-                        <div class="text-[9px] font-black text-red-500 uppercase tracking-widest mb-4 flex items-center justify-between">
-                            <span>Vulnerability Surface Audit</span>
-                            <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                        </div>
-                        <div class="space-y-2">
-                            @forelse(($res['vulnerabilities'] ?? []) as $vuln)
-                                <div class="p-3 rounded-xl {{ $vuln['severity'] === 'CRITICAL' ? 'bg-red-500/10 border border-red-500/20' : 'bg-orange-500/5 border border-orange-500/10' }} flex items-start justify-between gap-4">
-                                    <div>
-                                        <div class="text-[9px] font-black {{ $vuln['severity'] === 'CRITICAL' ? 'text-red-500' : 'text-orange-500' }} uppercase tracking-widest">{{ $vuln['severity'] }}</div>
-                                        <div class="text-[10px] text-white font-mono mt-1">{{ $vuln['path'] }}</div>
-                                        <div class="text-[8px] text-slate-500 mt-0.5">{{ $vuln['description'] }}</div>
-                                    </div>
-                                    <span class="text-[9px] font-black text-white px-1.5 py-0.5 rounded {{ $vuln['status'] === 200 ? 'bg-red-600' : 'bg-orange-600' }}">{{ $vuln['status'] }}</span>
-                                </div>
-                            @empty
-                                <div class="text-center py-6 text-[10px] text-slate-600 italic">No critical configuration leaks found.</div>
-                            @endforelse
-                        </div>
+                        @endforeach
                     </div>
                 </div>
 
-                <!-- 3. SEO & Content Intel (Column 9-12) -->
-                <div class="col-span-12 lg:col-span-4 space-y-6">
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6">SEO & Content Intelligence</div>
-                        @if($res['seo_intel'])
-                            <div class="space-y-4">
+                <div class="col-span-12 lg:col-span-8 bg-slate-900 rounded-[2rem] p-8 border border-red-500/10">
+                    <div class="text-[10px] font-black text-red-500 uppercase tracking-widest mb-6 flex items-center justify-between">
+                        <span>Vulnerability Discovery</span>
+                        <span class="px-2 py-0.5 bg-red-600 text-white text-[8px] rounded font-black">LIVE AUDIT</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @forelse(($res['vulnerabilities'] ?? []) as $vuln)
+                            <div class="p-4 rounded-2xl bg-red-500/5 border border-red-500/10 flex items-start justify-between gap-4">
                                 <div>
-                                    <div class="text-[8px] font-black text-slate-600 uppercase mb-1">Page Title</div>
-                                    <div class="text-[11px] text-white font-medium italic line-clamp-2">"{{ $res['seo_intel']['title'] }}"</div>
+                                    <div class="text-[10px] text-white font-mono">{{ $vuln['path'] }}</div>
+                                    <div class="text-[9px] text-slate-500 mt-1 uppercase font-black tracking-widest">{{ $vuln['description'] }}</div>
                                 </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div class="p-3 rounded-xl {{ $res['seo_intel']['robots'] ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500' }}">
-                                        <div class="text-[8px] font-black uppercase mb-1">Robots.txt</div>
-                                        <div class="text-[10px] font-black">{{ $res['seo_intel']['robots'] ? 'FOUND' : 'MISSING' }}</div>
-                                    </div>
-                                    <div class="p-3 rounded-xl {{ $res['seo_intel']['sitemap'] ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500' }}">
-                                        <div class="text-[8px] font-black uppercase mb-1">Sitemap</div>
-                                        <div class="text-[10px] font-black">{{ $res['seo_intel']['sitemap'] ? 'FOUND' : 'MISSING' }}</div>
-                                    </div>
-                                </div>
+                                <span class="text-[9px] font-black text-red-500 px-2 py-1 bg-red-500/10 rounded">{{ $vuln['status'] }}</span>
                             </div>
-                        @else
-                            <div class="text-center py-10 text-[10px] text-slate-600 italic">SEO intelligence unavailable.</div>
-                        @endif
-                    </div>
-
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Exposed Network Services</div>
-                        <div class="grid grid-cols-2 gap-2">
-                            @forelse($res['ports'] as $port)
-                                <div class="p-3 rounded-xl bg-white/5 flex items-center justify-between">
-                                    <span class="text-[9px] font-black text-white">{{ $port['service'] }}</span>
-                                    <span class="text-[9px] font-black text-emerald-500">{{ $port['port'] }}</span>
-                                </div>
-                            @empty
-                                <div class="col-span-2 text-center py-4 text-[10px] text-slate-600 italic">No critical public ports discovered.</div>
-                            @endforelse
-                        </div>
-                    </div>
-
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5 h-[calc(100%-240px)]">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Discovery Inventory ({{ count($res['subdomains']) }})</div>
-                        <div class="grid gap-1.5 max-h-[180px] overflow-y-auto custom-scrollbar">
-                            @foreach($res['subdomains'] as $sub)
-                                <div class="text-[9px] font-mono text-slate-500 p-2 bg-white/5 rounded-lg truncate hover:text-blue-400 transition-colors">
-                                    {{ $sub }}
-                                </div>
-                            @endforeach
-                        </div>
+                        @empty
+                            <div class="col-span-2 text-center py-10 text-[11px] text-slate-600 italic font-medium">No critical file leaks detected in the public surface.</div>
+                        @endforelse
                     </div>
                 </div>
 
-                <!-- 6. Forensic Activity Log (PROOF OF WORK) -->
-                <div class="col-span-12 bg-[#0b0e14] rounded-[2rem] p-8 border border-white/5">
-                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center justify-between">
-                        <span>Forensic Activity Log</span>
-                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase">Live Probing Logs</span>
+                <!-- 5. Relationship Topology -->
+                <div class="col-span-12 bg-slate-900 rounded-[3rem] p-12 border border-white/5 overflow-hidden">
+                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-12 text-center">Infrastructure Topology Map</div>
+                    <div class="flex justify-center">
+                        <pre class="mermaid text-white">
+graph LR
+    Main["{{ $res['domain'] }}"]
+    Main --> DNS["DNS INFRA"]
+    @foreach($res['dns'] as $record)
+        @if($record['type'] === 'A')
+            DNS --> IP_{{ str_replace('.', '_', $record['ip']) }}["{{ $record['ip'] }} ({{ $record['geo']['country'] ?? 'Global' }})"]
+        @endif
+    @endforeach
+    @foreach(array_slice($res['subdomains'], 0, 5) as $sub)
+        Main --> Sub_{{ md5($sub) }}["{{ $sub }}"]
+    @endforeach
+                        </pre>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                </div>
+
+                <!-- 6. Forensic Activity (Proof) -->
+                <div class="col-span-12 bg-slate-900 rounded-[2rem] p-8 border border-white/5">
+                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Forensic Activity Log</div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                         @foreach(($res['activity_log'] ?? []) as $log)
-                            <div class="flex items-center justify-between p-3 rounded-xl bg-white/[0.01] border border-white/5">
-                                <div class="flex items-center gap-3 truncate">
-                                    <span class="text-[9px] font-mono text-slate-600">{{ $log['status'] }}</span>
-                                    <span class="text-[10px] text-white font-mono truncate">{{ $log['path'] }}</span>
+                            <div class="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-1">
+                                <div class="text-[9px] text-white font-mono truncate">{{ $log['path'] }}</div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[8px] text-slate-600 font-mono">{{ $log['status'] }}</span>
+                                    <span class="text-[8px] font-black 
+                                        @if($log['severity'] === 'critical') text-red-500
+                                        @elseif($log['severity'] === 'success') text-emerald-500
+                                        @else text-slate-500 @endif uppercase">
+                                        {{ str_replace('Filtered (Matches Error Page)', 'FILTERED', $log['result']) }}
+                                    </span>
                                 </div>
-                                <span class="text-[8px] font-black px-1.5 py-0.5 rounded
-                                    @if($log['severity'] === 'critical') bg-red-500 text-white
-                                    @elseif($log['severity'] === 'success') bg-emerald-500 text-white
-                                    @else bg-slate-800 text-slate-500 @endif">
-                                    {{ $log['result'] }}
-                                </span>
                             </div>
                         @endforeach
                     </div>
                 </div>
             </div>
+
+            <!-- Leaflet Map JS -->
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    var map = L.map('map', {
+                        zoomControl: false,
+                        attributionControl: false
+                    }).setView([20, 0], 2);
+
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        maxZoom: 19
+                    }).addTo(map);
+
+                    @foreach($res['dns'] as $record)
+                        @if(isset($record['geo']['lat']) && isset($record['geo']['lon']))
+                            L.circleMarker([{{ $record['geo']['lat'] }}, {{ $record['geo']['lon'] }}], {
+                                radius: 8,
+                                fillOpacity: 0.8,
+                                color: '#3b82f6',
+                                fillColor: '#3b82f6'
+                            }).addTo(map).bindPopup("<div class='text-xs font-bold text-slate-900'>IP: {{ $record['ip'] }}<br>{{ $record['geo']['city'] }}, {{ $record['geo']['country'] }}</div>");
+                        @endif
+                    @endforeach
+                });
+            </script>
         @endif
 
-        <!-- Footer Log -->
-        <div class="bg-[#111418] rounded-[2rem] border border-white/5 overflow-hidden">
-            <div class="px-8 py-5 border-b border-white/5 flex items-center justify-between">
-                <h2 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Asset Ledger</h2>
-                <span class="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Real-time Feed</span>
+        <!-- Global Records Ledger -->
+        <div class="bg-slate-950 rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl mt-12">
+            <div class="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <h2 class="text-xs font-black text-slate-500 uppercase tracking-widest">Global Asset Ledger</h2>
+                <span class="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="text-[9px] font-black text-slate-600 uppercase tracking-widest bg-white/5 border-b border-white/5">
-                            <th class="px-8 py-4">Type</th>
-                            <th class="px-8 py-4">Node</th>
-                            <th class="px-8 py-4">Value</th>
-                            <th class="px-8 py-4 text-right">Observation</th>
+                        <tr class="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 border-b border-white/5">
+                            <th class="px-8 py-5">Type</th>
+                            <th class="px-8 py-5">Infrastructure Node</th>
+                            <th class="px-8 py-5">Resolution</th>
+                            <th class="px-8 py-5 text-right">Observation</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         @foreach($dnsRecords as $record)
-                        <tr class="hover:bg-white/[0.01] transition-colors group">
-                            <td class="px-8 py-4">
-                                <span class="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded text-[8px] font-black uppercase">{{ $record->type }}</span>
+                        <tr class="hover:bg-white/[0.02] transition-colors group">
+                            <td class="px-8 py-5">
+                                <span class="px-3 py-1 bg-blue-500/10 text-blue-500 rounded-lg text-[9px] font-black uppercase">{{ $record->type }}</span>
                             </td>
-                            <td class="px-8 py-4 text-[11px] font-black text-white group-hover:text-blue-400 transition-colors">{{ $record->host }}</td>
-                            <td class="px-8 py-4 text-[10px] text-slate-500 font-mono truncate max-w-sm">{{ $record->value }}</td>
-                            <td class="px-8 py-4 text-right text-[9px] text-slate-600 font-bold uppercase tracking-tighter">{{ \Carbon\Carbon::parse($record->last_seen_at)->diffForHumans() }}</td>
+                            <td class="px-8 py-5 text-xs font-black text-white group-hover:text-blue-400 transition-colors">{{ $record->host }}</td>
+                            <td class="px-8 py-5 text-[10px] text-slate-500 font-mono truncate max-w-sm">{{ $record->value }}</td>
+                            <td class="px-8 py-5 text-right text-[10px] text-slate-600 font-bold uppercase tracking-tighter">{{ \Carbon\Carbon::parse($record->last_seen_at)->diffForHumans() }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -237,5 +259,6 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
         .mermaid { background: transparent !important; }
+        .leaflet-container { background: #0b0e14 !important; }
     </style>
 </x-app-layout>

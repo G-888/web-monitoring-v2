@@ -50,6 +50,18 @@ class AssetIntelligenceController extends Controller
         }
         $ports = $ip ? $service->scanPorts($ip) : [];
 
+        $vulnerabilities = $vulnData['discovered'];
+        $activityLog = $vulnData['activity'];
+
+        // AI Risk Scoring
+        $scoringData = [
+            'ssl_audit' => $sslAudit,
+            'fingerprint' => $fingerprint,
+            'ports' => $ports,
+            'vulnerabilities' => $vulnerabilities
+        ];
+        $securityAudit = $service->calculateSecurityScore($scoringData);
+
         return back()->with([
             'manual_asset_result' => [
                 'dns' => $records,
@@ -59,9 +71,10 @@ class AssetIntelligenceController extends Controller
                 'ssl_audit' => $sslAudit,
                 'cookies' => $cookies,
                 'seo_intel' => $seoIntel,
-                'vulnerabilities' => $vulnData['discovered'],
-                'activity_log' => $vulnData['activity'],
+                'vulnerabilities' => $vulnerabilities,
+                'activity_log' => $activityLog,
                 'ports' => $ports,
+                'security_audit' => $securityAudit,
                 'is_ip' => filter_var($domain, FILTER_VALIDATE_IP)
             ]
         ]);
