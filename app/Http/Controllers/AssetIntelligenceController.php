@@ -27,9 +27,12 @@ class AssetIntelligenceController extends Controller
 
     public function scan(Request $request, \App\Services\DnsScannerService $service)
     {
-        $url = $request->input('url');
-        $domain = parse_url($url, PHP_URL_HOST) ?: $url;
+        $input = $request->input('url');
         
+        // Clean input (remove http/https)
+        $domain = str_replace(['http://', 'https://'], '', $input);
+        $domain = explode('/', $domain)[0];
+
         $records = $service->scanDns($domain);
         $subdomains = $service->discoverSubdomains($domain);
 
@@ -37,7 +40,8 @@ class AssetIntelligenceController extends Controller
             'manual_asset_result' => [
                 'dns' => $records,
                 'subdomains' => $subdomains,
-                'domain' => $domain
+                'domain' => $domain,
+                'is_ip' => filter_var($domain, FILTER_VALIDATE_IP)
             ]
         ]);
     }

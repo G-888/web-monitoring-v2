@@ -12,8 +12,21 @@ class DnsScannerService
     /**
      * Scan for DNS records of a given domain.
      */
-    public function scanDns($domain)
+    public function scanDns($input)
     {
+        // Check if input is an IP address
+        if (filter_var($input, FILTER_VALIDATE_IP)) {
+            $hostname = @gethostbyaddr($input);
+            return [
+                [
+                    'type' => 'PTR (Reverse DNS)',
+                    'host' => $input,
+                    'target' => $hostname ?: 'No PTR record found',
+                    'ip' => $input
+                ]
+            ];
+        }
+
         $types = [DNS_A, DNS_AAAA, DNS_MX, DNS_TXT, DNS_NS, DNS_CNAME];
         $results = [];
 
@@ -32,6 +45,10 @@ class DnsScannerService
      */
     public function discoverSubdomains($domain)
     {
+        if (filter_var($domain, FILTER_VALIDATE_IP)) {
+            return [];
+        }
+
         $domain = $this->cleanDomain($domain);
         $subdomains = [];
 
