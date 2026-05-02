@@ -29,14 +29,22 @@ class SeoScannerService
 
         foreach ($this->userAgents as $key => $ua) {
             try {
-                $response = Http::withHeaders(['User-Agent' => $ua])
-                    ->timeout(10)
-                    ->get($url);
+                $response = Http::withHeaders([
+                    'User-Agent' => $ua,
+                    'Referer' => 'https://www.google.com/'
+                ])
+                ->timeout(10)
+                ->get($url);
 
                 $content = $response->body();
                 if ($content) {
                     $hashes[$key] = hash('sha256', $content);
                     $results[$key] = $content;
+
+                    // 1. Language Anomaly Detection (e.g. Thai chars on .gov.my)
+                    if (str_contains($url, '.gov.my') && preg_match('/[\x{0E00}-\x{0E7F}]/u', $content)) {
+                        $findings[] = "FOREIGN_LANGUAGE_ANOMALY: Thai characters detected on government domain";
+                    }
 
                     // Inspection logic for the desktop version (primary)
                     if ($key === 'desktop') {
