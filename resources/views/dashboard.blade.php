@@ -1,318 +1,212 @@
 <x-app-layout>
-    <div x-data="{ 
-        detailOpen: false, 
-        selectedMonitor: null,
-        commandBarOpen: false,
-        openDetail(monitor) {
-            this.selectedMonitor = monitor;
-            this.detailOpen = true;
-        }
-    }" class="min-h-screen bg-[#06080b] text-slate-400 font-sans selection:bg-orange-500/30">
-        
-        <!-- Command Bar Overlay -->
-        <div x-show="commandBarOpen" x-transition.opacity class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm px-4 pt-20" x-cloak>
-            <div class="max-w-2xl mx-auto bg-[#111418] border border-white/5 rounded-3xl shadow-2xl overflow-hidden shadow-orange-500/5">
-                <div class="p-6 flex items-center gap-4">
-                    <svg class="h-6 w-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <input @keydown.escape="commandBarOpen = false" autofocus type="text" class="w-full bg-transparent border-none text-xl text-white focus:ring-0 placeholder-slate-700 font-bold" placeholder="Run command...">
+    <x-slot name="header_title">Monitoring Dashboard</x-slot>
+
+    <div class="space-y-6">
+        <!-- Stats Grid -->
+        <section class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="glass rounded-2xl p-6 transition-all duration-300 hover:shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm font-bold text-slate-500 uppercase tracking-wider">Total Monitors</div>
+                    <div class="h-10 w-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4 text-3xl font-bold">{{ $monitors->count() }}</div>
+            </div>
+
+            <div class="glass rounded-2xl p-6 transition-all duration-300 hover:shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm font-bold text-slate-500 uppercase tracking-wider">Online</div>
+                    <div class="h-10 w-10 rounded-xl bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-400">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4 text-3xl font-bold text-green-600 dark:text-green-400">
+                    {{ $monitors->filter(fn ($monitor) => $monitor->latestResult?->is_up)->count() }}
                 </div>
             </div>
-        </div>
 
-        <div class="max-w-[1600px] mx-auto p-6 lg:p-10 space-y-12">
-            
-            <!-- Top Bento Stats -->
-            <header class="grid grid-cols-2 lg:grid-cols-5 gap-6">
-                <div class="col-span-2 lg:col-span-1 bg-gradient-to-br from-orange-600 to-orange-800 rounded-[2rem] p-8 text-white shadow-lg shadow-orange-600/20 flex flex-col justify-between">
-                    <div class="text-[10px] font-black uppercase tracking-widest opacity-60">Control Center</div>
-                    <div class="mt-4">
-                        <div class="text-4xl font-black">{{ $monitors->count() }}</div>
-                        <div class="text-xs font-bold opacity-80">Active Nodes</div>
+            <div class="glass rounded-2xl p-6 transition-all duration-300 hover:shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm font-bold text-slate-500 uppercase tracking-wider">Offline</div>
+                    <div class="h-10 w-10 rounded-xl bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </div>
                 </div>
+                <div class="mt-4 text-3xl font-bold text-red-600 dark:text-red-400">
+                    {{ $monitors->filter(fn ($monitor) => $monitor->latestResult && ! $monitor->latestResult->is_up)->count() }}
+                </div>
+            </div>
 
+            <div class="glass rounded-2xl p-6 transition-all duration-300 hover:shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm font-bold text-slate-500 uppercase tracking-wider">SEO Alerts</div>
+                    <div class="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4 text-3xl font-bold text-amber-600 dark:text-amber-400">
+                    {{ $monitors->filter(fn ($monitor) => $monitor->latestSeoResult?->is_suspicious)->count() }}
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitors Grid -->
+        <section class="grid gap-6 lg:grid-cols-2">
+            @forelse($monitors as $monitor)
                 @php
-                    $online = $monitors->filter(fn ($m) => $m->latestResult?->is_up)->count();
-                    $offline = $monitors->count() - $online;
-                    $alerts = $monitors->filter(fn ($m) => $m->latestSeoResult?->is_suspicious)->count();
+                    $result = $monitor->latestResult;
+                    $isUp = (bool) ($result?->is_up);
                 @endphp
 
-                <div class="bg-[#111418] border border-white/5 rounded-[2rem] p-8 flex flex-col justify-between hover:border-emerald-500/30 transition-all group">
-                    <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-500 transition-colors">Infrastructure</div>
-                    <div class="mt-4">
-                        <div class="text-3xl font-black text-white">{{ $online }}</div>
-                        <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">System Online</div>
-                    </div>
-                </div>
-
-                <div class="bg-[#111418] border border-white/5 rounded-[2rem] p-8 flex flex-col justify-between hover:border-red-500/30 transition-all group">
-                    <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-red-500 transition-colors">Critical</div>
-                    <div class="mt-4">
-                        <div class="text-3xl font-black text-white">{{ $offline }}</div>
-                        <div class="text-[10px] font-bold text-red-500 uppercase tracking-widest">Nodes Down</div>
-                    </div>
-                </div>
-
-                <div class="bg-[#111418] border border-white/5 rounded-[2rem] p-8 flex flex-col justify-between hover:border-orange-500/30 transition-all group">
-                    <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-orange-500 transition-colors">Security</div>
-                    <div class="mt-4">
-                        <div class="text-3xl font-black text-white">{{ $alerts }}</div>
-                        <div class="text-[10px] font-bold text-orange-500 uppercase tracking-widest">SEO Alerts</div>
-                    </div>
-                </div>
-
-                <div class="bg-[#111418] border border-white/5 rounded-[2rem] p-8 flex flex-col justify-between">
-                    <div class="flex justify-between items-start">
-                        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Global Health</div>
-                        <div class="text-xs font-black text-emerald-500">99.2%</div>
-                    </div>
-                    <div class="mt-4 h-8 flex items-end gap-1">
-                        @foreach(range(1, 15) as $i)
-                            <div class="w-full bg-emerald-500/20 rounded-full" style="height: {{ rand(40, 100) }}%"></div>
-                        @endforeach
-                    </div>
-                </div>
-            </header>
-
-            <!-- Main Monitoring Stack -->
-            <section class="space-y-4">
-                <div class="flex items-center justify-between px-4">
-                    <h2 class="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Operational Nodes</h2>
-                    <button @click="commandBarOpen = true" class="text-[10px] font-black text-orange-500 uppercase tracking-widest hover:underline">Launch Command (CTRL+K)</button>
-                </div>
-
-                <div class="grid grid-cols-1 gap-3">
-                    @foreach($monitors as $monitor)
-                        @php
-                            $result = $monitor->latestResult;
-                            $isUp = (bool)($result?->is_up);
-                            $seo = $monitor->latestSeoResult;
-                            $health = 100;
-                            if(!$isUp) $health -= 50;
-                            if($seo?->is_suspicious) $health -= 30;
-                        @endphp
-                        
-                        <div @click="openDetail(@json($monitor))" 
-                             class="relative bg-[#111418] hover:bg-[#161a20] border border-white/5 rounded-3xl p-5 cursor-pointer transition-all flex items-center gap-8 group overflow-hidden">
-                            
-                            <!-- Left Status Bar -->
-                            <div class="absolute left-0 top-0 bottom-0 w-1.5 {{ $isUp ? 'bg-emerald-500 shadow-[2px_0_10px_rgba(16,185,129,0.3)]' : 'bg-red-500 shadow-[2px_0_10px_rgba(239,68,68,0.3)]' }}"></div>
-
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-3">
-                                    <span class="text-base font-black text-white group-hover:text-orange-500 transition-colors truncate">{{ $monitor->name }}</span>
-                                    <span class="px-2 py-0.5 rounded-md bg-white/5 text-[9px] font-bold text-slate-500 uppercase tracking-widest font-mono">{{ $result?->status_code ?? '---' }}</span>
-                                </div>
-                                <div class="text-[10px] text-slate-600 font-mono mt-1 truncate">{{ $monitor->url }}</div>
-                            </div>
-
-                            <!-- Visual Metrics -->
-                            <div class="hidden lg:flex items-center gap-12 flex-shrink-0">
-                                <div class="flex flex-col items-center">
-                                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-tighter mb-1">Latency</div>
-                                    <div class="text-sm font-black {{ ($result?->response_time ?? 0) > 1 ? 'text-orange-400' : 'text-white' }}">
-                                        {{ $result?->response_time ? round($result->response_time * 1000) . 'ms' : '---' }}
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col items-center">
-                                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-tighter mb-1 text-center">Uptime</div>
-                                    <div class="relative flex items-center justify-center">
-                                        <svg class="h-8 w-8 -rotate-90">
-                                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="3" fill="transparent" class="text-white/5" />
-                                            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="3" fill="transparent" 
-                                                    stroke-dasharray="88" 
-                                                    stroke-dashoffset="{{ 88 - (88 * ($monitor->uptime_24h ?? 0) / 100) }}" 
-                                                    class="text-emerald-500" />
-                                        </svg>
-                                        <span class="absolute text-[8px] font-black text-white">{{ $monitor->uptime_24h ?? 0 }}%</span>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col items-center w-24">
-                                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-tighter mb-1">Trend</div>
-                                    <div class="h-6 w-full">
-                                        <canvas id="spark-{{ $monitor->id }}"></canvas>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col items-center">
-                                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-tighter mb-1">Security</div>
-                                    <div class="flex items-center gap-1">
-                                        @if($monitor->seo_enabled)
-                                            <div class="h-2 w-2 rounded-full {{ $seo?->is_suspicious ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' }}"></div>
-                                            <span class="text-[10px] font-black text-slate-300">{{ $seo?->is_suspicious ? 'ALERT' : 'SAFE' }}</span>
-                                        @else
-                                            <span class="text-[10px] font-black text-slate-600 italic">OFF</span>
-                                        @endif
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col items-center">
-                                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-tighter mb-1">Health</div>
-                                    <div class="text-sm font-black {{ $health > 80 ? 'text-emerald-500' : ($health > 50 ? 'text-orange-500' : 'text-red-500') }}">
-                                        {{ $health }}%
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center gap-4 flex-shrink-0 ml-auto">
-                                <form method="POST" action="{{ route('monitors.check', $monitor) }}" @click.stop>
-                                    @csrf
-                                    <button class="p-3 rounded-2xl bg-white/5 hover:bg-orange-600 text-slate-500 hover:text-white transition-all">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </section>
-        </div>
-
-        <!-- Right Side Detail Side-sheet -->
-        <div x-show="detailOpen" 
-             class="fixed inset-0 z-[110] flex justify-end overflow-hidden" x-cloak>
-            
-            <div x-show="detailOpen" x-transition.opacity @click="detailOpen = false" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-
-            <aside x-show="detailOpen" 
-                   x-transition:enter="transition ease-out duration-300 transform"
-                   x-transition:enter-start="translate-x-full"
-                   x-transition:enter-end="translate-x-0"
-                   x-transition:leave="transition ease-in duration-300 transform"
-                   class="relative w-full max-w-lg bg-[#0d1117] border-l border-white/5 flex flex-col h-full shadow-2xl">
-                
-                <div class="p-8 border-b border-white/5 flex items-center justify-between">
-                    <div>
-                        <h2 class="text-2xl font-black text-white tracking-tight" x-text="selectedMonitor?.name"></h2>
-                        <div class="text-xs font-mono text-slate-500 mt-1" x-text="selectedMonitor?.url"></div>
-                    </div>
-                    <button @click="detailOpen = false" class="p-2 rounded-xl hover:bg-white/5 text-slate-500 transition-all">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
-                    
-                    <!-- Performance Matrix -->
-                    <div class="space-y-4">
-                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Performance Matrix</div>
-                        <div class="h-48 w-full bg-black/40 rounded-3xl border border-white/5 p-6 shadow-inner">
-                            <canvas id="detail-chart"></canvas>
+                <article class="glass rounded-2xl p-6 transition-all duration-300 hover:shadow-xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold {{ $isUp ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' }}">
+                            <span class="h-2 w-2 rounded-full {{ $isUp ? 'bg-green-500' : 'bg-red-500' }} animate-pulse"></span>
+                            {{ $isUp ? 'ONLINE' : 'OFFLINE' }}
                         </div>
                     </div>
 
-                    <!-- Security Insights -->
-                    <div class="space-y-4">
-                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Security Insights</div>
-                        <template x-if="selectedMonitor?.latest_seo_result?.is_suspicious">
-                            <div class="p-6 rounded-3xl bg-red-500/10 border border-red-500/20">
-                                <div class="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Anomalous Patterns Detected</div>
-                                <div class="flex flex-wrap gap-2">
-                                    <template x-for="p in selectedMonitor?.latest_seo_result?.detected_patterns">
-                                        <span class="px-3 py-1 bg-red-500 text-white rounded-lg text-[10px] font-black" x-text="p"></span>
-                                    </template>
-                                </div>
-                            </div>
-                        </template>
-                        <template x-if="!selectedMonitor?.latest_seo_result?.is_suspicious">
-                            <div class="p-6 rounded-3xl bg-white/5 border border-white/5 flex items-center gap-4 text-slate-500">
-                                <svg class="h-6 w-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path></svg>
-                                <span class="text-xs font-bold uppercase tracking-widest">No Active Security Threats</span>
-                            </div>
-                        </template>
+                    <div class="flex flex-col gap-1">
+                        <h2 class="text-xl font-bold group-hover:text-orange-500 transition-colors">{{ $monitor->name }}</h2>
+                        <a href="{{ $monitor->url }}" target="_blank" class="text-sm text-slate-500 hover:text-orange-400 truncate max-w-xs">{{ $monitor->url }}</a>
                     </div>
 
-                    <!-- Event Timeline (Mock) -->
-                    <div class="space-y-4">
-                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Incident Timeline</div>
-                        <div class="space-y-4 relative border-l border-white/5 ml-2 pl-6">
-                            <div class="relative">
-                                <div class="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
-                                <div class="text-xs font-bold text-white">System Verified Online</div>
-                                <div class="text-[10px] text-slate-500 mt-1">Today, 00:42 AM - Status 200 OK</div>
-                            </div>
-                            <div class="relative opacity-60">
-                                <div class="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-slate-700"></div>
-                                <div class="text-xs font-bold text-slate-300">Routine SEO Audit</div>
-                                <div class="text-[10px] text-slate-500 mt-1">Yesterday, 11:20 PM - No issues found</div>
-                            </div>
+                    <div class="mt-8 grid grid-cols-3 gap-4">
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Response</div>
+                            <div class="mt-1 text-lg font-bold">{{ $result?->response_time ? number_format($result->response_time, 3).'s' : '-' }}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</div>
+                            <div class="mt-1 text-lg font-bold">{{ $result?->status_code ?? '-' }}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Uptime 24h</div>
+                            <div class="mt-1 text-lg font-bold text-orange-600 dark:text-orange-400">{{ $monitor->uptime_24h ?? 0 }}%</div>
                         </div>
                     </div>
-                </div>
 
-                <div class="p-8 bg-black/20 border-t border-white/5 grid grid-cols-2 gap-4">
-                    <button class="bg-orange-600 hover:bg-orange-500 text-white text-xs font-black py-4 rounded-2xl transition-all shadow-lg shadow-orange-600/20">MANUAL RE-SCAN</button>
-                    <button class="bg-white/5 hover:bg-white/10 text-white text-xs font-black py-4 rounded-2xl transition-all border border-white/5">NODE CONFIG</button>
-                </div>
-            </aside>
-        </div>
+                    <!-- Chart Container -->
+                    <div class="mt-6 h-32 w-full">
+                        <canvas id="chart-{{ $monitor->id }}"></canvas>
+                    </div>
 
+                    <div class="mt-6 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-2 flex-wrap">
+                             <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-[10px] font-bold text-slate-500">{{ $monitor->interval }}s interval</span>
+                             
+                             <span class="px-2 py-1 rounded-lg {{ $monitor->latestSeoResult?->is_suspicious ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 dark:bg-white/5 text-slate-500' }} text-[10px] font-bold">
+                                SEO: {{ $monitor->seo_enabled ? ($monitor->latestSeoResult?->is_suspicious ? 'ALERT' : 'CLEAR') : 'OFF' }}
+                             </span>
+
+                             @if($monitor->ssl_expires_at)
+                                @php
+                                    $daysLeft = now()->diffInDays($monitor->ssl_expires_at, false);
+                                    $sslStatusColor = $daysLeft < 7 ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' : ($daysLeft < 30 ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 dark:bg-white/5 text-slate-500');
+                                @endphp
+                                <span class="px-2 py-1 rounded-lg {{ $sslStatusColor }} text-[10px] font-bold" title="Expires: {{ $monitor->ssl_expires_at->format('Y-m-d H:i') }}">
+                                   SSL: {{ $daysLeft > 0 ? $daysLeft . 'd' : 'EXPIRED' }}
+                                </span>
+                             @elseif(str_starts_with($monitor->url, 'https'))
+                                <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-[10px] font-bold text-slate-400">
+                                   SSL: PENDING
+                                </span>
+                             @endif
+                        </div>
+                        <div class="flex gap-2">
+                             <form method="POST" action="{{ route('monitors.check', $monitor) }}">
+                                @csrf
+                                <button class="p-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white transition-colors" title="Check Now">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                </button>
+                            </form>
+                            <a href="{{ route('monitors.edit', $monitor) }}" class="p-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors" title="Edit">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </a>
+                        </div>
+                    </div>
+
+                    @if($monitor->latestSeoResult?->is_suspicious)
+                        <div class="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/10">
+                            <div class="text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-widest mb-2">Detection Findings</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach(($monitor->latestSeoResult->detected_patterns ?? []) as $pattern)
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-200/50 dark:bg-amber-500/20 text-[10px] font-bold text-amber-900 dark:text-amber-300">{{ $pattern }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                </article>
+            @empty
+                <div class="lg:col-span-2 glass rounded-3xl p-12 text-center">
+                    <div class="h-20 w-20 rounded-2xl bg-slate-100 dark:bg-white/5 mx-auto flex items-center justify-center text-slate-400 mb-6">
+                        <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">No monitors configured</h2>
+                    <p class="text-slate-500 mb-8 max-w-sm mx-auto">Start tracking your infrastructure by adding your first website monitor.</p>
+                    <a href="{{ route('monitors.create') }}" class="btn-primary inline-block">Add Your First Monitor</a>
+                </div>
+            @endforelse
+        </section>
     </div>
-
-    <style>
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
-        [x-cloak] { display: none !important; }
-    </style>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        window.sparkCharts = {};
+        window.monitorCharts = {};
+
         @foreach($monitors as $monitor)
             (() => {
-                const ctx = document.getElementById('spark-{{ $monitor->id }}').getContext('2d');
-                window.sparkCharts['{{ $monitor->id }}'] = new Chart(ctx, {
+                const canvas = document.getElementById('chart-{{ $monitor->id }}');
+                if (!canvas) return;
+
+                const isDark = document.documentElement.classList.contains('dark');
+                const accentColor = isDark ? '#fb923c' : '#f97316';
+
+                window.monitorCharts['{{ $monitor->id }}'] = new Chart(canvas.getContext('2d'), {
                     type: 'line',
                     data: {
-                        labels: @json($monitor->recent_checks->pluck('checked_at')),
+                        labels: @json($monitor->recent_checks->pluck('checked_at')->map(fn ($date) => optional($date)->format('H:i:s'))),
                         datasets: [{
                             data: @json($monitor->recent_checks->pluck('response_time')),
-                            borderColor: '{{ $isUp ? "#10b981" : "#ef4444" }}',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.4,
-                            pointRadius: 0
+                            borderColor: accentColor,
+                            backgroundColor: accentColor + '20',
+                            fill: true,
+                            tension: .4,
+                            pointRadius: 0,
+                            borderWidth: 2
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                        scales: { x: { display: false }, y: { display: false } }
+                        plugins: { legend: { display: false } },
+                        scales: { 
+                            x: { display: false }, 
+                            y: { 
+                                display: false,
+                                suggestedMin: 0
+                            } 
+                        }
                     }
                 });
             })();
         @endforeach
-
-        const detailCtx = document.getElementById('detail-chart').getContext('2d');
-        window.detailChart = new Chart(detailCtx, {
-            type: 'line',
-            data: {
-                labels: Array(24).fill(''),
-                datasets: [{
-                    data: Array(24).fill(0).map(() => Math.random() * 0.5),
-                    borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.05)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#f97316',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { display: false } },
-                    y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9, weight: 'bold' } } }
-                }
-            }
+        
+        // Listen for dark mode toggle to update charts
+        window.addEventListener('click', (e) => {
+             if (e.target.closest('button[ @click*="darkMode"]')) {
+                 setTimeout(() => {
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const accentColor = isDark ? '#fb923c' : '#f97316';
+                    
+                    Object.values(window.monitorCharts).forEach(chart => {
+                        chart.data.datasets[0].borderColor = accentColor;
+                        chart.data.datasets[0].backgroundColor = accentColor + '20';
+                        chart.update();
+                    });
+                 }, 100);
+             }
         });
     </script>
 </x-app-layout>
