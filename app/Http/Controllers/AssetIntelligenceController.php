@@ -36,7 +36,8 @@ class AssetIntelligenceController extends Controller
         $records = $service->scanDns($domain);
         $subdomains = $service->discoverSubdomains($domain);
         $fingerprint = $service->fingerprint($domain);
-        $emailSecurity = $service->auditEmailSecurity($records);
+        $sslAudit = $service->auditSsl($domain);
+        $cookies = $service->auditCookies($domain);
         
         // Find the IP to scan ports
         $ip = filter_var($domain, FILTER_VALIDATE_IP) ? $domain : null;
@@ -53,7 +54,8 @@ class AssetIntelligenceController extends Controller
                 'subdomains' => $subdomains,
                 'domain' => $domain,
                 'fingerprint' => $fingerprint,
-                'email_security' => $emailSecurity,
+                'ssl_audit' => $sslAudit,
+                'cookies' => $cookies,
                 'ports' => $ports,
                 'is_ip' => filter_var($domain, FILTER_VALIDATE_IP)
             ]
