@@ -79,6 +79,16 @@ class DnsScannerService
         if (!str_starts_with($url, 'http')) $url = "https://" . $url;
         $url = rtrim($url, '/');
         
+        // 1. Baseline: Detect "Soft 404" / Wildcard 200
+        $baselineUrl = $url . '/this-path-should-not-exist-' . rand(1000, 9999);
+        $baselineBody = '';
+        $baselineStatus = 404;
+        try {
+            $baselineResponse = Http::timeout(1)->withoutVerifying()->get($baselineUrl);
+            $baselineStatus = $baselineResponse->status();
+            $baselineBody = $baselineResponse->body();
+        } catch (\Exception $e) {}
+
         $paths = [
             '/.env' => 'Environment File (Credentials Leak)',
             '/.git/config' => 'Git Repository (Source Leak)',
@@ -95,6 +105,12 @@ class DnsScannerService
         foreach ($paths as $path => $description) {
             try {
                 $response = Http::timeout(0.5)->withoutVerifying()->get($url . $path);
+                
+                // 2. Validate: Ignore if it matches the baseline "Fake" path
+                if ($response->successful() && $baselineStatus === 200) {
+                    if ($response->body() === $baselineBody) continue;
+                }
+
                 if ($response->successful() || $response->status() === 403) {
                     $discovered[] = [
                         'path' => $path,
