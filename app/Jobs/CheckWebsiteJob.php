@@ -68,6 +68,8 @@ class CheckWebsiteJob implements ShouldQueue
                 ->values()
                 ->all();
 
+            $html = $html ?: ($response->body() ?? '');
+
             if ($html !== '') {
                 $clean = strtolower(strip_tags($html));
                 $clean = substr($clean, 0, 10000);

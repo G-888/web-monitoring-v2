@@ -33,8 +33,8 @@ class SeoScannerService
                     ->timeout(10)
                     ->get($url);
 
-                if ($response->successful()) {
-                    $content = $response->body();
+                $content = $response->body();
+                if ($content) {
                     $hashes[$key] = hash('sha256', $content);
                     $results[$key] = $content;
 
