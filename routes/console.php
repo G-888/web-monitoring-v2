@@ -7,6 +7,13 @@ use Illuminate\Support\Facades\Schedule;
 // Run monitoring every minute
 Schedule::command('app:run-monitor-checks')->everyMinute();
 
+Schedule::call(function () {
+    foreach (\App\Models\Monitor::where('is_active', true)->get() as $monitor) {
+        \App\Jobs\CheckWebsiteJob::dispatch($monitor);
+        \App\Jobs\ScanDnsIntelligenceJob::dispatch($monitor);
+    }
+})->everyFiveMinutes();
+
 // SEO Poisoning Detection
 Schedule::command('app:run-seo-checks')->hourly();
 Schedule::command('app:run-internal-crawl')->daily();

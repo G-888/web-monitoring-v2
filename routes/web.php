@@ -89,11 +89,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ssl-conversion', [SslConversionController::class, 'convert'])
         ->name('ssl-conversion.convert');
 
-    Route::get('/seo-security', [\App\Http\Controllers\SeoSecurityController::class, 'index'])
-        ->name('seo-security.index');
+    Route::get('/seo-security', [App\Http\Controllers\SeoSecurityController::class, 'index'])->name('seo-security.index');
+    Route::post('/seo-security/scan', [App\Http\Controllers\SeoSecurityController::class, 'scan'])->name('seo-security.scan');
 
-    Route::post('/seo-security/scan', [\App\Http\Controllers\SeoSecurityController::class, 'scan'])
-        ->name('seo-security.scan');
+    // Asset Intelligence
+    Route::get('/assets', [App\Http\Controllers\AssetIntelligenceController::class, 'index'])->name('assets.index');
+    Route::post('/assets/scan', [App\Http\Controllers\AssetIntelligenceController::class, 'scan'])->name('assets.scan');
 
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
