@@ -73,21 +73,11 @@
                     </div>
                 </div>
 
-                <!-- 2. Security Forensics (Column 5-8) -->
+                <!-- 4. Security Hygiene & Vulnerability Surface (Column 5-8) -->
                 <div class="col-span-12 lg:col-span-4 space-y-6">
                     <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6">SSL/TLS & Security Hygiene</div>
+                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-6">Security & Hygiene Audit</div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-4">
-                                <div>
-                                    <div class="text-[8px] font-black text-slate-600 uppercase">Issuer</div>
-                                    <div class="text-[11px] text-white font-bold truncate">{{ $res['ssl_audit']['issuer'] ?? 'N/A' }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-[8px] font-black text-slate-600 uppercase">Expires</div>
-                                    <div class="text-[11px] text-orange-500 font-bold">{{ $res['ssl_audit']['valid_to'] ?? 'N/A' }}</div>
-                                </div>
-                            </div>
                             <div class="space-y-2">
                                 @foreach(($res['fingerprint']['security'] ?? []) as $key => $passed)
                                     <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/5">
@@ -96,19 +86,36 @@
                                     </div>
                                 @endforeach
                             </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="text-[8px] font-black text-slate-600 uppercase">Issuer</div>
+                                    <div class="text-[11px] text-white font-bold truncate">{{ $res['ssl_audit']['issuer'] ?? 'N/A' }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[8px] font-black text-slate-600 uppercase">SSL Valid To</div>
+                                    <div class="text-[11px] text-orange-500 font-bold">{{ $res['ssl_audit']['valid_to'] ?? 'N/A' }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5">
-                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Exposed Network Services</div>
-                        <div class="grid grid-cols-2 gap-2">
-                            @forelse($res['ports'] as $port)
-                                <div class="p-3 rounded-xl bg-white/5 flex items-center justify-between">
-                                    <span class="text-[9px] font-black text-white">{{ $port['service'] }}</span>
-                                    <span class="text-[9px] font-black text-emerald-500">{{ $port['port'] }}</span>
+                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5 border-red-500/10">
+                        <div class="text-[9px] font-black text-red-500 uppercase tracking-widest mb-4 flex items-center justify-between">
+                            <span>Vulnerability Surface Audit</span>
+                            <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                        </div>
+                        <div class="space-y-2">
+                            @forelse(($res['vulnerabilities'] ?? []) as $vuln)
+                                <div class="p-3 rounded-xl {{ $vuln['severity'] === 'CRITICAL' ? 'bg-red-500/10 border border-red-500/20' : 'bg-orange-500/5 border border-orange-500/10' }} flex items-start justify-between gap-4">
+                                    <div>
+                                        <div class="text-[9px] font-black {{ $vuln['severity'] === 'CRITICAL' ? 'text-red-500' : 'text-orange-500' }} uppercase tracking-widest">{{ $vuln['severity'] }}</div>
+                                        <div class="text-[10px] text-white font-mono mt-1">{{ $vuln['path'] }}</div>
+                                        <div class="text-[8px] text-slate-500 mt-0.5">{{ $vuln['description'] }}</div>
+                                    </div>
+                                    <span class="text-[9px] font-black text-white px-1.5 py-0.5 rounded {{ $vuln['status'] === 200 ? 'bg-red-600' : 'bg-orange-600' }}">{{ $vuln['status'] }}</span>
                                 </div>
                             @empty
-                                <div class="col-span-2 text-center py-4 text-[10px] text-slate-600 italic">No critical public ports discovered.</div>
+                                <div class="text-center py-6 text-[10px] text-slate-600 italic">No critical configuration leaks found.</div>
                             @endforelse
                         </div>
                     </div>
@@ -138,6 +145,20 @@
                         @else
                             <div class="text-center py-10 text-[10px] text-slate-600 italic">SEO intelligence unavailable.</div>
                         @endif
+                    </div>
+
+                    <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5">
+                        <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Exposed Network Services</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            @forelse($res['ports'] as $port)
+                                <div class="p-3 rounded-xl bg-white/5 flex items-center justify-between">
+                                    <span class="text-[9px] font-black text-white">{{ $port['service'] }}</span>
+                                    <span class="text-[9px] font-black text-emerald-500">{{ $port['port'] }}</span>
+                                </div>
+                            @empty
+                                <div class="col-span-2 text-center py-4 text-[10px] text-slate-600 italic">No critical public ports discovered.</div>
+                            @endforelse
+                        </div>
                     </div>
 
                     <div class="bg-[#111418] rounded-[2rem] p-6 border border-white/5 h-[calc(100%-240px)]">

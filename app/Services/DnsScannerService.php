@@ -74,6 +74,40 @@ class DnsScannerService
         } catch (\Exception $e) { return []; }
     }
 
+    public function checkSensitivePaths($url)
+    {
+        if (!str_starts_with($url, 'http')) $url = "https://" . $url;
+        $url = rtrim($url, '/');
+        
+        $paths = [
+            '/.env' => 'Environment File (Credentials Leak)',
+            '/.git/config' => 'Git Repository (Source Leak)',
+            '/.vscode/settings.json' => 'VS Code Config',
+            '/phpinfo.php' => 'PHP Information (Info Leak)',
+            '/config.php.bak' => 'Config Backup',
+            '/wp-config.php.bak' => 'WordPress Config Backup',
+            '/phpmyadmin/' => 'Database Management Panel',
+            '/admin' => 'Administrative Portal',
+            '/.htaccess' => 'Server Config',
+        ];
+
+        $discovered = [];
+        foreach ($paths as $path => $description) {
+            try {
+                $response = Http::timeout(0.5)->withoutVerifying()->get($url . $path);
+                if ($response->successful() || $response->status() === 403) {
+                    $discovered[] = [
+                        'path' => $path,
+                        'description' => $description,
+                        'status' => $response->status(),
+                        'severity' => $response->successful() ? 'CRITICAL' : 'WARNING'
+                    ];
+                }
+            } catch (\Exception $e) {}
+        }
+        return $discovered;
+    }
+
     public function getSeoIntelligence($url)
     {
         if (!str_starts_with($url, 'http')) $url = "https://" . $url;

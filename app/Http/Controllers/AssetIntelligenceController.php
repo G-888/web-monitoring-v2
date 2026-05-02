@@ -39,6 +39,7 @@ class AssetIntelligenceController extends Controller
         $sslAudit = $service->auditSsl($domain);
         $cookies = $service->auditCookies($domain);
         $seoIntel = $service->getSeoIntelligence($domain);
+        $vulnerabilities = $service->checkSensitivePaths($domain);
         
         // Find the IP to scan ports
         $ip = filter_var($domain, FILTER_VALIDATE_IP) ? $domain : null;
@@ -58,6 +59,7 @@ class AssetIntelligenceController extends Controller
                 'ssl_audit' => $sslAudit,
                 'cookies' => $cookies,
                 'seo_intel' => $seoIntel,
+                'vulnerabilities' => $vulnerabilities,
                 'ports' => $ports,
                 'is_ip' => filter_var($domain, FILTER_VALIDATE_IP)
             ]
