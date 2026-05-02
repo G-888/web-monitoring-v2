@@ -11,6 +11,8 @@ class SeoSecurityController extends Controller
 {
     public function index()
     {
+        $monitors = \App\Models\Monitor::where('is_active', true)->get();
+
         $recentScans = SeoScan::with('monitor')
             ->orderBy('scanned_at', 'desc')
             ->limit(20)
@@ -31,7 +33,7 @@ class SeoSecurityController extends Controller
             ->limit(20)
             ->get();
 
-        return view('seo.index', compact('recentScans', 'suspiciousScans', 'discoveredPages', 'fileChanges'));
+        return view('seo.index', compact('monitors', 'recentScans', 'suspiciousScans', 'discoveredPages', 'fileChanges'));
     }
 
     public function scan(Request $request, \App\Services\SeoScannerService $service)

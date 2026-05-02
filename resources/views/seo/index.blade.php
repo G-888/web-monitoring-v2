@@ -132,6 +132,62 @@
         </div>
         @endif
 
+        <!-- Monitored Domains Status -->
+        <div class="glass rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10">
+            <div class="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+                <h2 class="text-lg font-bold">Monitored Domains SEO Status</h2>
+                <div class="text-xs text-slate-500">Total: {{ $monitors->count() }} active monitors</div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                            <th class="px-6 py-4">Domain</th>
+                            <th class="px-6 py-4">Current Status</th>
+                            <th class="px-6 py-4">Last Full Scan</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-white/5">
+                        @foreach($monitors as $monitor)
+                        <tr class="text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="font-bold">{{ $monitor->name }}</div>
+                                <div class="text-xs text-slate-500">{{ $monitor->url }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                @php
+                                    $latestScan = $recentScans->where('monitor_id', $monitor->id)->first();
+                                @endphp
+                                @if($latestScan)
+                                    @if($latestScan->status === 'clean')
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-bold">CLEAN</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-bold uppercase">{{ $latestScan->status }}</span>
+                                    @endif
+                                @else
+                                    <span class="text-slate-400 text-[10px]">PENDING INITIAL SCAN</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 text-xs text-slate-500">
+                                {{ $latestScan ? $latestScan->scanned_at->diffForHumans() : 'N/A' }}
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <form action="{{ route('seo-security.scan') }}" method="POST" class="inline">
+                                    @csrf
+                                    <input type="hidden" name="url" value="{{ $monitor->url }}">
+                                    <button type="submit" class="p-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-orange-500 hover:text-white transition-all group" title="Run Deep Scan Now">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Recent Activity -->
             <div class="glass rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10">
