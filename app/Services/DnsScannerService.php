@@ -8,23 +8,12 @@ use Illuminate\Support\Facades\Log;
 class DnsScannerService
 {
     /**
-     * Scan for DNS records and IP Intelligence.
+     * Scan for DNS records and infrastructure intelligence.
      */
     public function scanDns($input)
     {
         if (filter_var($input, FILTER_VALIDATE_IP)) {
-            $hostname = @gethostbyaddr($input);
-            $geo = $this->getIpMetadata($input);
-            
-            return [
-                [
-                    'type' => 'PTR (Reverse DNS)',
-                    'host' => $input,
-                    'target' => $hostname ?: 'No PTR record found',
-                    'ip' => $input,
-                    'geo' => $geo
-                ]
-            ];
+            return $this->handleIpScan($input);
         }
 
         $types = [DNS_A, DNS_AAAA, DNS_MX, DNS_TXT, DNS_NS, DNS_CNAME];
@@ -34,10 +23,7 @@ class DnsScannerService
             $records = @dns_get_record($input, $type);
             if ($records) {
                 foreach($records as $r) {
-                    // Enrich A records with Geo
-                    if ($r['type'] === 'A') {
-                        $r['geo'] = $this->getIpMetadata($r['ip']);
-                    }
+                    if ($r['type'] === 'A') $r['geo'] = $this->getIpMetadata($r['ip']);
                     $results[] = $r;
                 }
             }
@@ -47,39 +33,51 @@ class DnsScannerService
     }
 
     /**
-     * Discover subdomains and fingerprint their technology.
+     * Perform active port scan on critical services.
      */
-    public function discoverSubdomains($domain)
+    public function scanPorts($ip)
     {
-        if (filter_var($domain, FILTER_VALIDATE_IP)) return [];
-
-        $domain = $this->cleanDomain($domain);
-        $discovered = [];
-
-        try {
-            $response = Http::timeout(15)->get("https://crt.sh/?q=%.{$domain}&output=json");
-            
-            if ($response->successful()) {
-                $data = $response->json();
-                foreach ($data as $cert) {
-                    $names = explode("\n", $cert['common_name'] ?? '');
-                    foreach ($names as $name) {
-                        $name = strtolower(trim($name));
-                        if (str_ends_with($name, $domain) && $name !== $domain) {
-                            $discovered[] = $name;
-                        }
-                    }
-                }
+        $ports = [
+            21 => 'FTP', 22 => 'SSH', 23 => 'Telnet', 25 => 'SMTP', 
+            53 => 'DNS', 80 => 'HTTP', 443 => 'HTTPS', 3306 => 'MySQL', 
+            3389 => 'RDP', 8080 => 'HTTP-ALT'
+        ];
+        
+        $results = [];
+        foreach ($ports as $port => $name) {
+            $connection = @fsockopen($ip, $port, $errno, $errstr, 0.5);
+            if (is_resource($connection)) {
+                $results[] = ['port' => $port, 'service' => $name, 'status' => 'OPEN'];
+                fclose($connection);
             }
-        } catch (\Exception $e) {
-            Log::error("Subdomain discovery failed: " . $e->getMessage());
         }
-
-        return array_unique($discovered);
+        return $results;
     }
 
     /**
-     * Fingerprint technology and headers.
+     * Audit Email Security (SPF, DMARC).
+     */
+    public function auditEmailSecurity($dnsRecords)
+    {
+        $audit = [
+            'spf' => ['status' => false, 'value' => null],
+            'dmarc' => ['status' => false, 'value' => null],
+        ];
+
+        foreach ($dnsRecords as $r) {
+            if ($r['type'] === 'TXT') {
+                $txt = strtolower($r['txt'] ?? '');
+                if (str_contains($txt, 'v=spf1')) {
+                    $audit['spf'] = ['status' => true, 'value' => $r['txt']];
+                }
+            }
+        }
+
+        return $audit;
+    }
+
+    /**
+     * Detect CMS and Technology.
      */
     public function fingerprint($url)
     {
@@ -88,9 +86,16 @@ class DnsScannerService
         try {
             $response = Http::timeout(5)->withoutVerifying()->get($url);
             $headers = $response->headers();
+            $body = $response->body();
+
+            $cms = 'Custom';
+            if (str_contains($body, 'wp-content')) $cms = 'WordPress';
+            if (str_contains($body, 'Joomla!')) $cms = 'Joomla';
+            if (str_contains($body, 'Drupal')) $cms = 'Drupal';
 
             return [
                 'server' => $headers['Server'][0] ?? 'Unknown',
+                'cms' => $cms,
                 'powered_by' => $headers['X-Powered-By'][0] ?? 'Unknown',
                 'security' => [
                     'hsts' => isset($headers['Strict-Transport-Security']),
@@ -103,20 +108,38 @@ class DnsScannerService
         }
     }
 
-    /**
-     * Get GeoIP and ASN metadata.
-     */
+    public function discoverSubdomains($domain)
+    {
+        if (filter_var($domain, FILTER_VALIDATE_IP)) return [];
+        $domain = $this->cleanDomain($domain);
+        $discovered = [];
+        try {
+            $response = Http::timeout(10)->get("https://crt.sh/?q=%.{$domain}&output=json");
+            if ($response->successful()) {
+                foreach ($response->json() as $cert) {
+                    $names = explode("\n", $cert['common_name'] ?? '');
+                    foreach ($names as $name) {
+                        $name = strtolower(trim($name));
+                        if (str_ends_with($name, $domain) && $name !== $domain) $discovered[] = $name;
+                    }
+                }
+            }
+        } catch (\Exception $e) {}
+        return array_unique($discovered);
+    }
+
     public function getIpMetadata($ip)
     {
         try {
-            $response = Http::timeout(5)->get("http://ip-api.com/json/{$ip}?fields=status,country,city,isp,as,org");
-            if ($response->successful()) {
-                return $response->json();
-            }
-        } catch (\Exception $e) {
-            return null;
-        }
-        return null;
+            $response = Http::timeout(3)->get("http://ip-api.com/json/{$ip}?fields=status,country,city,isp,as,org");
+            return $response->successful() ? $response->json() : null;
+        } catch (\Exception $e) { return null; }
+    }
+
+    private function handleIpScan($ip)
+    {
+        $hostname = @gethostbyaddr($ip);
+        return [['type' => 'PTR', 'host' => $ip, 'target' => $hostname ?: 'No PTR', 'ip' => $ip, 'geo' => $this->getIpMetadata($ip)]];
     }
 
     private function cleanDomain($url)

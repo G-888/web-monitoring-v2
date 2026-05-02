@@ -36,6 +36,16 @@ class AssetIntelligenceController extends Controller
         $records = $service->scanDns($domain);
         $subdomains = $service->discoverSubdomains($domain);
         $fingerprint = $service->fingerprint($domain);
+        $emailSecurity = $service->auditEmailSecurity($records);
+        
+        // Find the IP to scan ports
+        $ip = filter_var($domain, FILTER_VALIDATE_IP) ? $domain : null;
+        if (!$ip) {
+            foreach($records as $r) {
+                if ($r['type'] === 'A') { $ip = $r['ip']; break; }
+            }
+        }
+        $ports = $ip ? $service->scanPorts($ip) : [];
 
         return back()->with([
             'manual_asset_result' => [
@@ -43,6 +53,8 @@ class AssetIntelligenceController extends Controller
                 'subdomains' => $subdomains,
                 'domain' => $domain,
                 'fingerprint' => $fingerprint,
+                'email_security' => $emailSecurity,
+                'ports' => $ports,
                 'is_ip' => filter_var($domain, FILTER_VALIDATE_IP)
             ]
         ]);

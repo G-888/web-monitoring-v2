@@ -70,27 +70,67 @@
                         </div>
                     </div>
                     <div>
-                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Security Posture</div>
+                        <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Infras / Cyber Hygiene</div>
                         <div class="space-y-3">
-                            @if(isset(session('manual_asset_result')['fingerprint']['security']))
-                                @foreach(session('manual_asset_result')['fingerprint']['security'] as $key => $passed)
-                                    <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
-                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ str_replace('_', ' ', strtoupper($key)) }}</span>
-                                        @if($passed)
-                                            <span class="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1">
-                                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
-                                                PASSED
-                                            </span>
-                                        @else
-                                            <span class="text-[9px] font-black text-red-500 uppercase flex items-center gap-1">
-                                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                MISSING
-                                            </span>
-                                        @endif
+                            <!-- Tech Info -->
+                            @if(isset(session('manual_asset_result')['fingerprint']))
+                                <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                    <div class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Tech Stack</div>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[9px] font-bold">{{ session('manual_asset_result')['fingerprint']['server'] }}</span>
+                                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[9px] font-bold">{{ session('manual_asset_result')['fingerprint']['cms'] }}</span>
                                     </div>
-                                @endforeach
+                                </div>
                             @endif
+
+                            <!-- Email Security -->
+                            <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <div class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Email Security</div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[10px] text-slate-300">SPF Policy</span>
+                                    <span class="text-[9px] font-black {{ session('manual_asset_result')['email_security']['spf']['status'] ? 'text-emerald-500' : 'text-red-500' }}">
+                                        {{ session('manual_asset_result')['email_security']['spf']['status'] ? 'ACTIVE' : 'MISSING' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Open Ports -->
+                            <div class="p-4 rounded-2xl bg-slate-950 border border-white/5 shadow-inner">
+                                <div class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center justify-between">
+                                    <span>Active Probing (Ports)</span>
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                </div>
+                                @forelse(session('manual_asset_result')['ports'] as $port)
+                                    <div class="flex items-center justify-between text-[10px] py-1 border-b border-white/5 last:border-0">
+                                        <span class="font-mono text-white">{{ $port['port'] }} / {{ $port['service'] }}</span>
+                                        <span class="text-emerald-500 font-black">OPEN</span>
+                                    </div>
+                                @empty
+                                    <div class="text-[10px] text-slate-600 italic">No common critical ports exposed.</div>
+                                @endforelse
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Visual Asset Map (Mermaid) -->
+                <div class="mt-10 pt-10 border-t border-white/5">
+                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Infrastructure Relationship Map</div>
+                    <div class="bg-black/20 rounded-[2rem] p-8 flex justify-center overflow-hidden border border-white/5">
+                        <pre class="mermaid text-white">
+graph LR
+    Main["{{ session('manual_asset_result')['domain'] }}"]
+    Main --> DNS["DNS Cluster"]
+    @foreach(session('manual_asset_result')['dns'] as $record)
+        @if($record['type'] === 'A')
+            DNS --> IP_{{ str_replace('.', '_', $record['ip']) }}["IP: {{ $record['ip'] }} ({{ $record['geo']['country'] ?? 'Global' }})"]
+        @endif
+    @endforeach
+    
+    @foreach(array_slice(session('manual_asset_result')['subdomains'], 0, 5) as $sub)
+        Main --> Sub_{{ md5($sub) }}["{{ $sub }}"]
+    @endforeach
+                        </pre>
                     </div>
                 </div>
             </div>
