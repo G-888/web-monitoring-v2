@@ -13,13 +13,10 @@ class RunFileIntegrityChecks extends Command
 
     public function handle()
     {
-        // For file integrity, we might run it on a specific node or all monitors representing nodes
-        $monitors = Monitor::where('is_active', true)->get();
+        // File integrity is a system-level check for the local server.
+        // We only need to run it once per interval.
+        FileIntegrityJob::dispatch();
 
-        foreach ($monitors as $monitor) {
-            FileIntegrityJob::dispatch($monitor);
-        }
-
-        $this->info("Dispatched file integrity jobs for {$monitors->count()} monitors.");
+        $this->info("Dispatched single file integrity job for the server.");
     }
 }

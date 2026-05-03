@@ -19,9 +19,23 @@ class MonitorController extends Controller
 
         $monitors = $query->latest()->get();
 
+        // Optimize Uptime Calculation: Batch query for all monitors in one go
+        $monitorIds = $monitors->pluck('id');
+        
+        $stats24h = CheckResult::whereIn('monitor_id', $monitorIds)
+            ->where('checked_at', '>=', now()->subHours(24))
+            ->selectRaw('monitor_id, COUNT(*) as total, SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) as up')
+            ->groupBy('monitor_id')
+            ->get()
+            ->keyBy('monitor_id');
+
         foreach ($monitors as $monitor) {
-            $monitor->uptime_24h = $monitor->uptimePercentage(24);
-            $monitor->uptime_7d  = $monitor->uptimePercentage(168);
+            $s24 = $stats24h->get($monitor->id);
+            $monitor->uptime_24h = ($s24 && $s24->total > 0) ? round(($s24->up / $s24->total) * 100, 2) : 0;
+            
+            // For 7d, we can still use the method or another batch query, 
+            // but 24h is the primary dashboard metric.
+            $monitor->uptime_7d = $monitor->uptimePercentage(168);
 
             $monitor->recent_checks = CheckResult::where('monitor_id', $monitor->id)
                 ->orderBy('checked_at', 'desc')

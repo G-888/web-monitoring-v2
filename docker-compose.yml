@@ -40,5 +40,23 @@ services:
     depends_on:
       - app
 
+  worker:
+    build: .
+    container_name: web_monitor_worker
+    restart: always
+    command: php artisan queue:work --verbose --tries=3 --timeout=90
+    depends_on:
+      - db
+      - app
+
+  scheduler:
+    build: .
+    container_name: web_monitor_scheduler
+    restart: always
+    command: sh -c "while [ true ]; do php artisan schedule:run --no-interaction & sleep 60; done"
+    depends_on:
+      - db
+      - app
+
 volumes:
   db_data:

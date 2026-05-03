@@ -60,14 +60,9 @@ class CheckWebsiteJob implements ShouldQueue
         $isSuspicious = false;
 
         if ($this->monitor->seo_enabled) {
-            $searchScan = app(SearchEngineSeoScanner::class)->scan($this->monitor);
-            $searchFindings = $searchScan['findings'] ?? [];
-            $searchDetected = $searchScan['detected_patterns'] ?? [];
-            $searchQueries = collect($searchFindings)
-                ->pluck('query')
-                ->unique()
-                ->values()
-                ->all();
+            $searchFindings = [];
+            $searchDetected = [];
+            $searchQueries = [];
 
             $html = $html ?: ($response->body() ?? '');
 
@@ -134,7 +129,7 @@ class CheckWebsiteJob implements ShouldQueue
         if (!$isUp && (!$last || $last->is_up)) {
             foreach ($emails as $email) {
                 if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($email)->send(new MonitorDown($this->monitor));
+                    Mail::to($email)->queue(new MonitorDown($this->monitor));
                 }
             }
             $this->dispatchAdvancedAlerts('down');
@@ -143,7 +138,7 @@ class CheckWebsiteJob implements ShouldQueue
         if ($last && !$last->is_up && $isUp) {
             foreach ($emails as $email) {
                 if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($email)->send(new MonitorRecovered($this->monitor));
+                    Mail::to($email)->queue(new MonitorRecovered($this->monitor));
                 }
             }
             $this->dispatchAdvancedAlerts('recovered');

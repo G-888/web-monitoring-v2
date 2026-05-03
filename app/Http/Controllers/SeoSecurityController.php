@@ -6,6 +6,7 @@ use App\Models\SeoScan;
 use App\Models\SeoDiscoveredPage;
 use App\Models\FileIntegrityHash;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class SeoSecurityController extends Controller
 {
