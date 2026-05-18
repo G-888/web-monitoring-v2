@@ -71,9 +71,17 @@
                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                         Log Inspection
                     </a>
+                    <a href="{{ route('incidents.index') }}" class="sidebar-link {{ request()->routeIs('incidents.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                        <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Incident History
+                    </a>
                     <a href="{{ route('ssl-conversion.index') }}" class="sidebar-link {{ request()->routeIs('ssl-conversion.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         SSL Conversion
+                    </a>
+                    <a href="{{ route('ssl-monitors.index') }}" class="sidebar-link {{ request()->routeIs('ssl-monitors.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                        <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m1-6H8a2 2 0 00-2 2v5c0 5.25 3.438 8.063 6 9 2.563-.938 6-3.75 6-9V6a2 2 0 00-2-2z"></path></svg>
+                        SSL Monitor
                     </a>
                     <a href="{{ route('seo-security.index') }}" class="sidebar-link {{ request()->routeIs('seo-security.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path></svg>

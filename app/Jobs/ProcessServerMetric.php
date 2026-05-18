@@ -50,8 +50,10 @@ class ProcessServerMetric implements ShouldQueue
             $server->forceFill(['last_heartbeat_at' => now()])->save();
             $server = $server->fresh();
 
-            $this->evaluateThresholds($server, $metric, $alerts);
-            $this->processWindowsServices($server, $alerts);
+            if (! $server->isUnderMaintenance()) {
+                $this->evaluateThresholds($server, $metric, $alerts);
+                $this->processWindowsServices($server, $alerts);
+            }
             $this->processCommandResults($server);
 
             // Broadcast the update

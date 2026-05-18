@@ -35,6 +35,8 @@ class CheckDatabaseConnection implements ShouldQueue
         $error = null;
 
         try {
+            $this->ensurePdoDriverIsLoaded($monitor->driver);
+
             $pdo = new PDO(
                 $this->dsn($monitor),
                 $monitor->username,
@@ -84,6 +86,18 @@ class CheckDatabaseConnection implements ShouldQueue
             'pgsql' => "pgsql:host={$monitor->host};port={$monitor->port};dbname={$monitor->database_name}",
             default => "mysql:host={$monitor->host};port={$monitor->port};dbname={$monitor->database_name};charset=utf8mb4",
         };
+    }
+
+    private function ensurePdoDriverIsLoaded(string $driver): void
+    {
+        $extension = match ($driver) {
+            'pgsql' => 'pdo_pgsql',
+            default => 'pdo_mysql',
+        };
+
+        if (!extension_loaded($extension)) {
+            throw new \RuntimeException("The {$extension} PHP extension is not installed.");
+        }
     }
 
     private function probeQuery(string $driver): string

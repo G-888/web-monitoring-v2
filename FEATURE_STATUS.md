@@ -7,7 +7,7 @@ System: Laravel app in Docker + Windows Node.js server agent
 
 | # | Feature | Status | Implementation | Notes |
 |---|---------|--------|----------------|-------|
-| 1 | Server Inventory | Partial | `Server` model, migration, controller, `/servers` UI | CRUD exists; needs polishing, grouping/tags, and production install flow |
+| 1 | Server Inventory | Ready | `Server` model, migration, controller, `/servers` UI | CRUD, grouping/tags, heartbeat summary, and agent install snippets are implemented |
 | 2 | Server Online/Offline Heartbeat | Ready | Agent posts metrics; `ProcessServerMetric` updates `last_heartbeat_at` | Validated with `local-test`; 15-second offline threshold works |
 | 3 | Website URL Health Check | Ready | `CheckWebsiteJob` + dashboard UI | HTTP checks, response time, uptime tracking, SEO/content checks |
 | 4 | CPU Usage | Ready | Agent collects CPU via `systeminformation`; API stores it | Validated end-to-end |
@@ -16,9 +16,12 @@ System: Laravel app in Docker + Windows Node.js server agent
 | 7 | Server Metric Threshold Alerts | Ready | Per-server CPU/RAM/disk/offline thresholds + cooldowns | Uses Laravel receipt time for heartbeat freshness |
 | 8 | Server Metric History Charts | Ready | `/server-resources/history` + Chart.js panel | CPU/RAM/disk history with server and range selector |
 | 9 | Windows Service Status & Control | Ready | Service status, detail tab, command queue, agent execution path | Control requires `module.service_control` and a privileged agent |
-| 10 | Database Connection Test | Partial | `DatabaseMonitor` model, encrypted password cast, check job, UI, scheduler | MySQL/MariaDB validated locally; PostgreSQL path exists but depends on PDO driver availability |
+| 10 | Database Connection Test | Ready | `DatabaseMonitor` model, encrypted password cast, check job, UI, scheduler | MySQL/MariaDB validated locally; Docker image installs `pdo_pgsql` for PostgreSQL support |
 | 11 | Email/Telegram Alert | Ready | Mail queues + Telegram job + Slack/Discord webhook support | Needs production credentials per install |
-| 12 | SSL Certificate Expiry Check | Ready | `CheckWebsiteJob` SSL detection + reminder job | 60-day warning threshold |
+| 12 | SSL Certificate Expiry Check | Ready | `CheckWebsiteJob` SSL detection + reminder job | SNI-aware certificate capture, issuer/expiry/error storage, per-monitor reminder threshold |
+| 13 | SSL Monitor Dashboard | Ready | `/ssl-monitors`, HTTPS monitor reuse, daily SSL refresh schedule | Add SSL-only URLs, auto-list HTTPS monitors from Add Monitor, check all, and permission-protected removal |
+| 14 | Webshell Detection | Ready | `WebshellScannerService`, `/seo-security/webshell-scan`, SEO Security UI, scheduled job | Local allowed-path scanner with manual/scheduled history for suspicious scripts, obfuscation, command execution, and droppers |
+| 15 | Incident History | Ready | `/incidents` timeline assembled from existing monitoring records | Website down checks, SSL issues, webshell suspicious/failed scans, and database failures |
 
 ## Validated Agent Loop
 
@@ -156,9 +159,18 @@ Dependency status:
 
 ## Ready To Use Now
 
+### Server Inventory
+
+- Add monitored servers with group and tag metadata.
+- Review grouped online/offline inventory summaries.
+- Copy per-server production agent config snippets from the inventory or edit screen.
+- Track heartbeat, metrics, thresholds, and Windows service status from the same table.
+
 ### Website URL Health Check
 
 - Add monitors from the dashboard.
+- Assign website monitors to groups and tags.
+- Filter dashboard monitors by group.
 - Runs HTTP/HTTPS checks.
 - Tracks response status, response time, uptime, content changes, and SEO poisoning indicators.
 
@@ -166,7 +178,65 @@ Dependency status:
 
 - Runs automatically for HTTPS monitors.
 - Stores expiry and issuer metadata.
-- Supports expiry reminders.
+- Stores the latest SSL failure reason when certificate capture fails.
+- Supports expiry reminders using each monitor's `ssl_alert_threshold_days`.
+- SSL socket capture is SNI-aware for hosts that require server-name indication.
+- Logs a warning when a certificate socket cannot be opened or parsed.
+
+### SSL Monitor Dashboard
+
+- Dedicated `/ssl-monitors` page lists all HTTPS monitors.
+- HTTPS monitors created through Add Monitor appear automatically.
+- SSL Monitor can add one or more HTTPS URLs directly from a textarea.
+- URL input accepts one URL per line or comma-separated values.
+- Non-HTTPS URLs are ignored by the SSL-only add flow.
+- Duplicate normalized URLs are not recreated; existing monitors are refreshed instead.
+- Status summary cards show tracked, valid, expiring, expired, and pending counts.
+- Certificate table shows monitor name, URL, SSL status, failure reason, expiry timestamp, issuer, last check time, and actions.
+- Alert threshold can be edited per SSL monitor from the certificate table.
+- Status rules:
+  - `Pending`: no certificate expiry stored yet.
+  - `Expired`: certificate expiry date is in the past.
+  - `Expiring`: certificate expires within 30 days.
+  - `Valid`: certificate expires in more than 30 days.
+- `Check Now` queues an immediate SSL/website check for a single HTTPS monitor.
+- `Check All` queues immediate checks for every visible HTTPS monitor.
+- Active HTTPS monitors are queued for an SSL metadata refresh daily at 02:00.
+- SSL reminder alerts use the per-monitor threshold instead of a hardcoded 60-day window.
+- Remove action deletes the monitor URL from SSL Monitor.
+- Remove permissions:
+  - Super Admin can remove any SSL monitor URL.
+  - Regular users can remove only their own SSL monitor URLs.
+  - Unauthorized removal attempts are blocked by the existing monitor policy.
+- Day counts are rounded to whole days for readable display.
+- Pending rows show either the latest SSL failure reason or `Waiting for first scan`.
+- Current validation coverage:
+  - Lists HTTPS monitors created through the normal Add Monitor flow.
+  - Adds multiple SSL URLs and avoids duplicates.
+  - Queues single monitor checks.
+  - Queues Check All for visible HTTPS monitors only.
+  - Allows owner removal.
+  - Blocks other users from removing someone else's URL.
+  - Allows Super Admin removal.
+
+### Webshell Detection
+
+- Manual local file scans from `/seo-security`.
+- Scheduled scans run daily at 03:00 for configured allowed paths.
+- Manual and scheduled scans are stored in `webshell_scans`.
+- Recent scan history is visible on the Webshell Detection tab.
+- Restricts scans to configured allowed paths.
+- Flags suspicious PHP/web script execution, command execution, obfuscation, encoded blobs, and dropper-style file writes.
+- Reports file, line, severity, signature, excerpt, and reason for each finding.
+
+### Incident History
+
+- `/incidents` provides a unified recent incident timeline.
+- Includes website downtime checks from `check_results`.
+- Includes SSL expired, expiring, and pending-error states from monitors.
+- Includes suspicious or failed webshell scans from `webshell_scans`.
+- Includes failed database checks for users with database monitoring access.
+- Regular users see only incidents tied to their website monitors; Super Admin can see all website/SSL monitor incidents.
 
 ### Email, Telegram, Slack, and Discord Alerts
 
@@ -194,15 +264,17 @@ Current behavior:
 - Sends failure alerts to active Super Admin alert channels with cooldowns.
 - Validated locally against Docker MariaDB as `Local MariaDB`.
 
-Known residual risk:
+PostgreSQL support:
 
-- PostgreSQL configuration is exposed in the UI and job path, but it requires the PHP `pdo_pgsql` extension in the runtime image.
+- The Docker image installs `pdo_pgsql`.
+- If a non-Docker PHP runtime is used, the database check job reports a clear missing-extension error when the needed PDO driver is unavailable.
 
 ## Production Notes
 
 - Keep `AGENT_API_KEY` and agent `apiKey` synchronized.
 - Use HTTPS for production agent traffic.
 - Run the queue worker continuously in production.
+- Configure `WEBSHELL_SCAN_ALLOWED_PATHS` to the web roots that should be scanned.
 - Rebuild the `.exe` after agent source changes:
 
 ```bash
@@ -215,3 +287,69 @@ npm run build:exe
 Node.js v24.15.0
 npm 11.12.1
 ```
+
+## Proposed Implementation Plan
+
+This plan is organized into four phases so you can track progress and prioritize work.
+
+### Phase 1 — High Value, Low Effort
+
+- [ ] Maintenance windows / scheduled silence
+  - [ ] Add maintenance fields to `servers` and `monitors`.
+  - [ ] Ignore alerts and incident creation during active maintenance.
+  - [ ] Add UI controls on server and monitor edit pages.
+
+- [ ] Network/service port checks
+  - [ ] Extend monitor types to include `tcp` and `udp`.
+  - [ ] Add connect checks and basic protocol validation in the check job.
+  - [ ] Add UI selector and result display for port checks.
+
+- [ ] Agent version reporting
+  - [ ] Send `agent_version` with every metric payload.
+  - [ ] Persist latest agent version on `servers`.
+  - [ ] Display agent version and check-in status in inventory.
+
+
+### Phase 2 — Agent and platform expansion
+
+- [ ] Linux/macOS agent support
+  - [ ] Reuse the current `agent.js` code with cross-platform abstractions.
+  - [ ] Add Linux `systemd`/init and macOS `launchctl` service discovery.
+  - [ ] Provide install scripts and config examples for Linux/macOS.
+
+- [ ] Agent auto-update / release tracking
+  - [ ] Add a backend endpoint for approved agent releases.
+  - [ ] Allow the agent to report its current version and optionally pull updates.
+  - [ ] Show upgrade status on the server inventory page.
+
+- [ ] Adaptive anomaly detection
+  - [ ] Build a baseline model from recent CPU/RAM/disk history.
+  - [ ] Alert on abnormal spikes or pattern deviations.
+  - [ ] Add an opt-in adaptive detection setting per server.
+
+### Phase 3 — Security, logs, and audit
+
+- [ ] Centralized log metadata and health
+  - [ ] Extend the agent to optionally ship log metadata or error counts.
+  - [ ] Display log health and suspicious log findings in the dashboard.
+  - [ ] Keep log collection lightweight and optional.
+
+- [ ] Audit trail and action history
+  - [ ] Record key changes such as monitor/server edits, alert setup, and service commands.
+  - [ ] Add an audit log page with filtering and export.
+
+- [ ] Stronger agent authentication
+  - [ ] Add request signing or JWT support for the agent API.
+  - [ ] Support API key rotation and token revocation.
+  - [ ] Harden rate limiting and error handling for agent endpoints.
+
+
+
+## Priority Summary
+
+- Priority 1: maintenance windows, agent version reporting, network checks
+- Priority 2: Linux/macOS agent, auto-update support, adaptive anomaly detection
+- Priority 3: centralized logs, audit trail, stronger agent auth
+- Priority 4: more advanced security and operational polish
+
+> This roadmap gives you a clear tracking plan for expanding coverage, reducing false alerts, and improving operational visibility.

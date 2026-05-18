@@ -24,6 +24,8 @@ test('authenticated users can create monitors', function () {
     $response = $this->actingAs($user)->post(route('monitors.store'), [
         'name' => 'Example',
         'url' => 'https://example.com',
+        'group' => 'Production',
+        'tags' => 'critical, public, critical',
         'interval' => 120,
         'is_active' => '1',
         'seo_enabled' => '1',
@@ -37,6 +39,8 @@ test('authenticated users can create monitors', function () {
         ->user_id->toBe($user->id)
         ->name->toBe('Example')
         ->url->toBe('https://example.com')
+        ->group->toBe('Production')
+        ->tags->toBe(['critical', 'public'])
         ->interval->toBe(120)
         ->is_active->toBeTrue()
         ->seo_enabled->toBeTrue();
@@ -50,6 +54,8 @@ test('authenticated users can update monitors', function () {
         'user_id' => $user->id,
         'name' => 'Old',
         'url' => 'https://old.test',
+        'group' => 'Legacy',
+        'tags' => ['old'],
         'interval' => 60,
         'is_active' => true,
         'seo_enabled' => true,
@@ -58,6 +64,8 @@ test('authenticated users can update monitors', function () {
     $response = $this->actingAs($user)->patch(route('monitors.update', $monitor), [
         'name' => 'New',
         'url' => 'https://new.test',
+        'group' => 'QA',
+        'tags' => 'internal, staging',
         'interval' => 300,
     ]);
 
@@ -66,9 +74,44 @@ test('authenticated users can update monitors', function () {
     expect($monitor->refresh())
         ->name->toBe('New')
         ->url->toBe('https://new.test')
+        ->group->toBe('QA')
+        ->tags->toBe(['internal', 'staging'])
         ->interval->toBe(300)
         ->is_active->toBeFalse()
         ->seo_enabled->toBeFalse();
+});
+
+test('dashboard can filter monitors by group', function () {
+    $user = User::factory()->create();
+
+    Monitor::create([
+        'user_id' => $user->id,
+        'name' => 'Production Monitor',
+        'url' => 'https://prod.test',
+        'group' => 'Production',
+        'tags' => ['critical'],
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => true,
+    ]);
+
+    Monitor::create([
+        'user_id' => $user->id,
+        'name' => 'Staging Monitor',
+        'url' => 'https://staging.test',
+        'group' => 'Staging',
+        'tags' => ['internal'],
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['group' => 'Production']))
+        ->assertOk()
+        ->assertSee('Production Monitor')
+        ->assertSee('critical')
+        ->assertDontSee('Staging Monitor');
 });
 
 test('authenticated users can pause resume check and delete monitors', function () {

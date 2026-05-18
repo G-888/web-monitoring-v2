@@ -20,6 +20,20 @@
                     <x-input-error :messages="$errors->get('url')" class="mt-1" />
                 </div>
 
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="space-y-2">
+                        <x-input-label for="group" :value="__('Group')" />
+                        <x-text-input id="group" name="group" type="text" class="w-full" value="{{ old('group') }}" placeholder="Production, Agency, Project" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('group')" class="mt-1" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="tags" :value="__('Tags')" />
+                        <x-text-input id="tags" name="tags" type="text" class="w-full" value="{{ old('tags') }}" placeholder="public, critical, cms" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('tags')" class="mt-1" />
+                    </div>
+                </div>
+
                 <div class="space-y-2">
                     <x-input-label for="interval" :value="__('Check interval in seconds')" />
                     <x-text-input id="interval" name="interval" type="number" class="w-full" value="{{ old('interval', 60) }}" min="30" max="86400" required autocomplete="off" />
@@ -30,6 +44,23 @@
                     <x-input-label for="alert_emails" :value="__('Alert Emails (comma-separated)')" />
                     <x-text-input id="alert_emails" name="alert_emails" type="text" class="w-full" value="{{ old('alert_emails') }}" placeholder="admin@example.com, alerts@example.com" autocomplete="off" />
                     <x-input-error :messages="$errors->get('alert_emails')" class="mt-1" />
+                </div>
+
+                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <h3 class="text-sm font-semibold text-slate-100">Maintenance window</h3>
+                    <p class="mt-1 text-xs text-slate-400">Scheduled maintenance suppresses alert notifications and removes temporary downtime from incident history.</p>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <div class="space-y-2">
+                            <x-input-label for="maintenance_starts_at" :value="__('Starts at')" />
+                            <x-text-input id="maintenance_starts_at" name="maintenance_starts_at" type="datetime-local" class="w-full" value="{{ old('maintenance_starts_at') }}" />
+                            <x-input-error :messages="$errors->get('maintenance_starts_at')" class="mt-1" />
+                        </div>
+                        <div class="space-y-2">
+                            <x-input-label for="maintenance_ends_at" :value="__('Ends at')" />
+                            <x-text-input id="maintenance_ends_at" name="maintenance_ends_at" type="datetime-local" class="w-full" value="{{ old('maintenance_ends_at') }}" />
+                            <x-input-error :messages="$errors->get('maintenance_ends_at')" class="mt-1" />
+                        </div>
+                    </div>
                 </div>
 
                 @if(auth()->user()->hasRole('Super Admin'))

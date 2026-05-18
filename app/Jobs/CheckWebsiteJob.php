@@ -121,25 +121,18 @@ class CheckWebsiteJob implements ShouldQueue
             'checked_at'    => now(),
         ]);
 
-        // Alerts
-        $emails = is_array($this->monitor->alert_emails) && count($this->monitor->alert_emails) > 0 
-            ? $this->monitor->alert_emails 
-            : ['suhailmajemi@gmail.com'];
+        $emails = $this->monitor->alertEmailRecipients();
 
         if (!$isUp && (!$last || $last->is_up)) {
             foreach ($emails as $email) {
-                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($email)->queue(new MonitorDown($this->monitor));
-                }
+                Mail::to($email)->queue(new MonitorDown($this->monitor));
             }
             $this->dispatchAdvancedAlerts('down');
         }
 
         if ($last && !$last->is_up && $isUp) {
             foreach ($emails as $email) {
-                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($email)->queue(new MonitorRecovered($this->monitor));
-                }
+                Mail::to($email)->queue(new MonitorRecovered($this->monitor));
             }
             $this->dispatchAdvancedAlerts('recovered');
         }
@@ -213,18 +206,24 @@ class CheckWebsiteJob implements ShouldQueue
         try {
             $urlParts = parse_url($this->monitor->url);
             $host = $urlParts['host'] ?? null;
-            if (!$host) return;
+            if (!$host) {
+                $this->recordSslFailure('URL does not contain a valid host.');
+                return;
+            }
+            $port = $urlParts['port'] ?? 443;
 
             $streamContext = stream_context_create([
                 'ssl' => [
                     'capture_peer_cert' => true,
+                    'SNI_enabled' => true,
+                    'peer_name' => $host,
                     'verify_peer' => false,
                     'verify_peer_name' => false,
                 ],
             ]);
 
             $client = @stream_socket_client(
-                "ssl://{$host}:443", 
+                "ssl://{$host}:{$port}",
                 $errno, 
                 $errstr, 
                 5, 
@@ -240,20 +239,41 @@ class CheckWebsiteJob implements ShouldQueue
                     if (isset($cert['validTo_time_t'])) {
                         $this->monitor->ssl_expires_at = date('Y-m-d H:i:s', $cert['validTo_time_t']);
                         $this->monitor->ssl_issuer = $cert['issuer']['O'] ?? $cert['issuer']['CN'] ?? null;
+                        $this->monitor->ssl_last_error = null;
                         $this->monitor->save();
+                    } else {
+                        $this->recordSslFailure('Certificate was returned but its expiry date could not be parsed.');
                     }
+                } else {
+                    $this->recordSslFailure('TLS connection succeeded but no peer certificate was returned.');
                 }
                 fclose($client);
+            } else {
+                $message = trim($errstr) ?: 'Unable to open SSL socket.';
+                $this->recordSslFailure($errno ? "{$message} (errno {$errno})" : $message);
             }
         } catch (\Throwable $e) {
-            Log::warning('SSL Check failed for ' . $this->monitor->url, ['error' => $e->getMessage()]);
+            $this->recordSslFailure($e->getMessage());
         }
+    }
+
+    private function recordSslFailure(string $message): void
+    {
+        $message = trim($message) ?: 'Unknown SSL check error.';
+
+        $this->monitor->forceFill([
+            'ssl_last_error' => substr($message, 0, 1000),
+        ])->save();
+
+        Log::warning('SSL Check failed for ' . $this->monitor->url, [
+            'error' => $message,
+        ]);
     }
 
     private function dispatchAdvancedAlerts(string $status): void
     {
         $user = $this->monitor->user;
-        if (!$user || !$user->hasDirectPermission('module.advanced_alerts')) {
+        if (!$user || !$user->can('module.advanced_alerts')) {
             return;
         }
 

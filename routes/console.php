@@ -27,8 +27,23 @@ Schedule::command('app:run-internal-crawl')->daily();
 // File Integrity Monitoring
 Schedule::command('app:run-file-integrity-checks')->everyTenMinutes();
 
+// Webshell detection for configured local web roots
+Schedule::call(function () {
+    collect(explode(',', (string) config('services.webshell.allowed_paths')))
+        ->map(fn ($path) => trim($path))
+        ->filter()
+        ->each(fn ($path) => \App\Jobs\RunWebshellScanJob::dispatch($path, 'scheduled'));
+})->dailyAt('03:00');
+
 // SSL renewal reminders daily
 Schedule::job(new \App\Jobs\SslRenewalReminderJob)->daily();
+
+// Refresh SSL certificate metadata for active HTTPS monitors every day
+Schedule::call(function () {
+    \App\Models\Monitor::where('is_active', true)
+        ->whereRaw('LOWER(url) LIKE ?', ['https://%'])
+        ->each(fn (\App\Models\Monitor $monitor) => \App\Jobs\CheckWebsiteJob::dispatch($monitor, true));
+})->dailyAt('02:00');
 
 // Server heartbeat/offline threshold alerts
 Schedule::job(new \App\Jobs\CheckServerHeartbeats)->everyMinute();

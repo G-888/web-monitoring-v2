@@ -42,6 +42,20 @@
 
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="space-y-2">
+                        <x-input-label for="group" :value="__('Group')" />
+                        <x-text-input id="group" name="group" type="text" class="w-full" value="{{ old('group') }}" placeholder="Production / Staging / Client name" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('group')" class="mt-1" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="tags" :value="__('Tags')" />
+                        <x-text-input id="tags" name="tags" type="text" class="w-full" value="{{ old('tags') }}" placeholder="web, mysql, coldfusion" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('tags')" class="mt-1" />
+                    </div>
+                </div>
+
+                <div class="grid gap-6 md:grid-cols-2">
+                    <div class="space-y-2">
                         <x-input-label for="latitude" :value="__('Latitude')" />
                         <x-text-input id="latitude" name="latitude" type="text" class="w-full" value="{{ old('latitude') }}" placeholder="e.g. 37.7749" autocomplete="off" />
                         <x-input-error :messages="$errors->get('latitude')" class="mt-1" />
@@ -112,6 +126,23 @@
                             <x-input-label for="alert_cooldown_seconds" :value="__('Alert cooldown seconds')" />
                             <x-text-input id="alert_cooldown_seconds" name="alert_cooldown_seconds" type="number" min="60" max="86400" step="1" class="w-full" value="{{ old('alert_cooldown_seconds', 900) }}" required />
                             <x-input-error :messages="$errors->get('alert_cooldown_seconds')" class="mt-1" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <h3 class="text-sm font-semibold text-slate-100">Maintenance window</h3>
+                    <p class="mt-1 text-xs text-slate-400">When active, alerts are suppressed and website incidents are excluded from history.</p>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <div class="space-y-2">
+                            <x-input-label for="maintenance_starts_at" :value="__('Starts at')" />
+                            <x-text-input id="maintenance_starts_at" name="maintenance_starts_at" type="datetime-local" class="w-full" value="{{ old('maintenance_starts_at') }}" />
+                            <x-input-error :messages="$errors->get('maintenance_starts_at')" class="mt-1" />
+                        </div>
+                        <div class="space-y-2">
+                            <x-input-label for="maintenance_ends_at" :value="__('Ends at')" />
+                            <x-text-input id="maintenance_ends_at" name="maintenance_ends_at" type="datetime-local" class="w-full" value="{{ old('maintenance_ends_at') }}" />
+                            <x-input-error :messages="$errors->get('maintenance_ends_at')" class="mt-1" />
                         </div>
                     </div>
                 </div>

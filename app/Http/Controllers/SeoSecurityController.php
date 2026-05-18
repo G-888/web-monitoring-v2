@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\SeoScan;
 use App\Models\SeoDiscoveredPage;
 use App\Models\FileIntegrityHash;
+use App\Models\WebshellScan;
+use App\Jobs\RunWebshellScanJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use App\Services\WebshellScannerService;
 
 class SeoSecurityController extends Controller
 {
@@ -34,7 +37,12 @@ class SeoSecurityController extends Controller
             ->limit(20)
             ->get();
 
-        return view('seo.index', compact('monitors', 'recentScans', 'suspiciousScans', 'discoveredPages', 'fileChanges'));
+        $webshellScans = WebshellScan::query()
+            ->orderBy('scanned_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return view('seo.index', compact('monitors', 'recentScans', 'suspiciousScans', 'discoveredPages', 'fileChanges', 'webshellScans'));
     }
 
     public function scan(Request $request, \App\Services\SeoScannerService $service)
@@ -69,5 +77,24 @@ class SeoSecurityController extends Controller
         $scan->save();
 
         return back()->with('manual_scan_result', $result)->with('manual_url', $url);
+    }
+
+    public function webshellScan(Request $request, WebshellScannerService $service)
+    {
+        $validated = $request->validate([
+            'path' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $result = $service->scan($validated['path'] ?? null);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['path' => $e->getMessage()]);
+        }
+
+        RunWebshellScanJob::storeResult($result, 'manual');
+
+        return redirect()
+            ->route('seo-security.index', ['tab' => 'webshell'])
+            ->with('webshell_scan_result', $result);
     }
 }

@@ -43,6 +43,20 @@
 
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="space-y-2">
+                        <x-input-label for="group" :value="__('Group')" />
+                        <x-text-input id="group" name="group" type="text" class="w-full" value="{{ old('group', $server->group) }}" placeholder="Production / Staging / Client name" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('group')" class="mt-1" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="tags" :value="__('Tags')" />
+                        <x-text-input id="tags" name="tags" type="text" class="w-full" value="{{ old('tags', implode(', ', $server->tags ?? [])) }}" placeholder="web, mysql, coldfusion" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('tags')" class="mt-1" />
+                    </div>
+                </div>
+
+                <div class="grid gap-6 md:grid-cols-2">
+                    <div class="space-y-2">
                         <x-input-label for="latitude" :value="__('Latitude')" />
                         <x-text-input id="latitude" name="latitude" type="text" class="w-full" value="{{ old('latitude', $server->latitude) }}" placeholder="e.g. 37.7749" autocomplete="off" />
                         <x-input-error :messages="$errors->get('latitude')" class="mt-1" />
@@ -115,6 +129,37 @@
                             <x-input-error :messages="$errors->get('alert_cooldown_seconds')" class="mt-1" />
                         </div>
                     </div>
+                </div>
+
+                    <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                        <h3 class="text-sm font-semibold text-slate-100">Maintenance window</h3>
+                        <p class="mt-1 text-xs text-slate-400">When active, alerts are suppressed and server downtime is treated as expected.</p>
+                        <div class="mt-4 grid gap-4 md:grid-cols-2">
+                            <div class="space-y-2">
+                                <x-input-label for="maintenance_starts_at" :value="__('Starts at')" />
+                                <x-text-input id="maintenance_starts_at" name="maintenance_starts_at" type="datetime-local" class="w-full" value="{{ old('maintenance_starts_at', optional($server->maintenance_starts_at)->format('Y-m-d\TH:i')) }}" />
+                                <x-input-error :messages="$errors->get('maintenance_starts_at')" class="mt-1" />
+                            </div>
+                            <div class="space-y-2">
+                                <x-input-label for="maintenance_ends_at" :value="__('Ends at')" />
+                                <x-text-input id="maintenance_ends_at" name="maintenance_ends_at" type="datetime-local" class="w-full" value="{{ old('maintenance_ends_at', optional($server->maintenance_ends_at)->format('Y-m-d\TH:i')) }}" />
+                                <x-input-error :messages="$errors->get('maintenance_ends_at')" class="mt-1" />
+                            </div>
+                        </div>
+                    </div>
+
+                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <h3 class="text-sm font-semibold text-slate-100">Agent Install Settings</h3>
+                    <div class="mt-3 overflow-x-auto rounded border border-white/10 bg-slate-950 p-3 text-xs text-slate-200">
+<pre>{
+  "serverId": "{{ $server->server_id }}",
+  "apiUrl": "{{ url('/api/metrics') }}",
+  "apiKey": "&lt;AGENT_API_KEY&gt;",
+  "intervalSeconds": 5,
+  "autoDiscoverWindowsServices": true
+}</pre>
+                    </div>
+                    <p class="mt-3 text-xs text-slate-400">Place this in the agent config next to the executable, then run the scheduled task installer from an Administrator PowerShell session.</p>
                 </div>
 
                 <div class="flex items-center justify-between gap-3 pt-2">

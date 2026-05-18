@@ -13,6 +13,8 @@ A lightweight Node.js agent for collecting and sending server metrics to a centr
 
 ## Installation
 
+Create the server inventory row in the dashboard first. The `/servers` page shows an agent config snippet for each server, including the exact `serverId` and metrics API URL to use.
+
 1. **Install Node.js** (version 14 or higher)
 
 2. **Clone or download** this repository

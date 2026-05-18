@@ -61,6 +61,24 @@ test('metrics api accepts registered active servers and queues processing', func
     Queue::assertPushed(ProcessServerMetric::class);
 });
 
+test('metrics api stores reported agent version on the server', function () {
+    Queue::fake();
+
+    $server = Server::create([
+        'server_id' => 'local-test',
+        'name' => 'Local Test',
+        'is_active' => true,
+    ]);
+
+    $this->postJson('/api/metrics', metricPayload([
+        'agent_version' => '1.0.0',
+    ]), [
+        'X-API-Key' => 'test-agent-key',
+    ])->assertAccepted();
+
+    expect($server->refresh()->agent_version)->toBe('1.0.0');
+});
+
 test('metric processing uses server receipt time for heartbeat', function () {
     $server = Server::create([
         'server_id' => 'local-test',

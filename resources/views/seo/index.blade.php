@@ -1,10 +1,15 @@
 <x-app-layout>
     <x-slot name="header_title">SEO Security & Integrity</x-slot>
 
+    @php
+        $activeTab = request('tab', session('webshell_scan_result') || $errors->has('path') ? 'webshell' : 'seo');
+        $activeTab = in_array($activeTab, ['seo', 'webshell'], true) ? $activeTab : 'seo';
+    @endphp
+
     <div class="max-w-7xl mx-auto space-y-8 pb-20 px-4 pt-4">
         
         <!-- Header & Quick Scan -->
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-slate-900 p-8 rounded-[2rem] border border-white/5 shadow-2xl">
+        <div class="flex flex-col gap-6 bg-slate-900 p-8 rounded-[2rem] border border-white/5 shadow-2xl">
             <div class="space-y-1">
                 <h1 class="text-3xl font-black tracking-tight text-white flex items-center gap-3">
                     <span class="text-orange-500">
@@ -12,18 +17,166 @@
                     </span>
                     SEO Security
                 </h1>
-                <p class="text-slate-400 font-medium">Real-time cloaking and injection monitoring.</p>
+                <p class="text-slate-400 font-medium">Real-time cloaking, injection, integrity, and local webroot checks.</p>
             </div>
-            
-            <form action="{{ route('seo-security.scan') }}" method="POST" class="flex items-center gap-2">
-                @csrf
-                <input type="url" name="url" placeholder="Forensic URL Check..." value="{{ old('url', $manual_url ?? '') }}" required 
-                    class="w-full lg:w-72 rounded-xl border-none bg-white/5 px-4 py-3 text-sm text-white focus:ring-2 focus:ring-orange-500 transition-all placeholder:text-slate-600">
-                <button type="submit" class="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white text-sm font-black rounded-xl transition-all shadow-lg shadow-orange-600/20 active:scale-95">
-                    SCAN
-                </button>
-            </form>
         </div>
+
+        <div class="inline-flex w-full flex-col gap-2 rounded-2xl border border-white/5 bg-slate-900 p-2 shadow-2xl sm:w-auto sm:flex-row">
+            <a href="{{ route('seo-security.index', ['tab' => 'seo']) }}" class="rounded-xl px-5 py-3 text-center text-sm font-black transition {{ $activeTab === 'seo' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                URL / SEO Scan
+            </a>
+            <a href="{{ route('seo-security.index', ['tab' => 'webshell']) }}" class="rounded-xl px-5 py-3 text-center text-sm font-black transition {{ $activeTab === 'webshell' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                Webshell Detection
+            </a>
+        </div>
+
+        @if($activeTab === 'webshell')
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+            <div class="rounded-[2rem] border border-white/5 bg-slate-900 p-8 shadow-2xl">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Webshell Detection</h2>
+                        <p class="mt-1 text-sm font-medium text-slate-400">Scan allowed local web paths for suspicious scripts, obfuscation, and command-execution patterns.</p>
+                    </div>
+                    <form action="{{ route('seo-security.webshell-scan') }}" method="POST" class="flex flex-col gap-2 sm:flex-row">
+                        @csrf
+                        <input type="text" name="path" value="{{ old('path') }}" placeholder="Optional allowed path"
+                            class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition-all placeholder:text-slate-600 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 sm:w-80">
+                        <button type="submit" class="rounded-xl bg-red-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-500 active:scale-95">
+                            SCAN FILES
+                        </button>
+                    </form>
+                </div>
+
+                @error('path')
+                    <div class="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-300">{{ $message }}</div>
+                @enderror
+
+                @if(session('webshell_scan_result'))
+                    @php $webshell = session('webshell_scan_result'); @endphp
+                    <div class="mt-6 rounded-2xl border {{ $webshell['status'] === 'clean' ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-red-500/25 bg-red-500/5' }} p-5">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <div class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Local file scan</div>
+                                <div class="mt-1 break-all text-sm font-mono text-slate-300">{{ $webshell['target'] }}</div>
+                            </div>
+                            <div class="rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest {{ $webshell['status'] === 'clean' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white' }}">
+                                {{ $webshell['status'] }}
+                            </div>
+                        </div>
+                        <div class="mt-4 text-sm text-slate-400">
+                            {{ $webshell['scanned_files'] }} files scanned at {{ $webshell['scanned_at'] }}
+                        </div>
+
+                        <div class="mt-5 space-y-3">
+                            @forelse($webshell['findings'] as $finding)
+                                <div class="rounded-xl border border-white/10 bg-slate-950/70 p-4">
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div class="text-xs font-black uppercase tracking-[0.18em] {{ $finding['severity'] === 'critical' ? 'text-red-300' : ($finding['severity'] === 'high' ? 'text-orange-300' : 'text-amber-300') }}">
+                                            {{ $finding['severity'] }} / {{ $finding['signature'] }}
+                                        </div>
+                                        <div class="text-xs font-mono text-slate-500">Line {{ $finding['line'] }}</div>
+                                    </div>
+                                    <div class="mt-2 break-all text-xs font-mono text-slate-300">{{ $finding['file'] }}</div>
+                                    <pre class="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs text-slate-200">{{ $finding['excerpt'] }}</pre>
+                                    <p class="mt-3 text-xs text-slate-400">{{ $finding['reason'] }}</p>
+                                </div>
+                            @empty
+                                <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-300">
+                                    No suspicious webshell signatures found in scanned files.
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            <div class="rounded-[2rem] border border-white/5 bg-slate-900 p-8 shadow-2xl">
+                <h2 class="text-xl font-bold text-white">Signal Coverage</h2>
+                <div class="mt-5 space-y-4 text-sm text-slate-400">
+                    <div>
+                        <div class="font-bold text-slate-200">Execution primitives</div>
+                        <p class="mt-1">Flags dynamic PHP and OS command execution commonly used by shells.</p>
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-200">Obfuscation</div>
+                        <p class="mt-1">Detects payload decoding, compressed strings, and large encoded blobs.</p>
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-200">Dropper behavior</div>
+                        <p class="mt-1">Highlights file-write and upload handlers in web-accessible code.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-[2rem] border border-white/5 bg-slate-900 p-8 shadow-2xl">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Webshell Scan History</h2>
+                    <p class="mt-1 text-sm font-medium text-slate-400">Manual and scheduled scans are retained for recent review.</p>
+                </div>
+                <div class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Daily at 03:00</div>
+            </div>
+
+            <div class="mt-6 overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-y border-white/5 bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            <th class="px-4 py-3">Target</th>
+                            <th class="px-4 py-3">Status</th>
+                            <th class="px-4 py-3">Source</th>
+                            <th class="px-4 py-3">Files</th>
+                            <th class="px-4 py-3">Findings</th>
+                            <th class="px-4 py-3">Scanned</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        @forelse($webshellScans as $scan)
+                            <tr>
+                                <td class="max-w-md break-all px-4 py-4 text-xs font-mono text-slate-300">{{ $scan->target ?? 'Unavailable' }}</td>
+                                <td class="px-4 py-4">
+                                    <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest {{ $scan->status === 'clean' ? 'bg-emerald-500 text-white' : ($scan->status === 'failed' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white') }}">
+                                        {{ $scan->status }}
+                                    </span>
+                                    @if($scan->error)
+                                        <div class="mt-2 max-w-xs text-xs font-semibold text-amber-300">{{ $scan->error }}</div>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4 text-xs font-bold uppercase text-slate-400">{{ $scan->source }}</td>
+                                <td class="px-4 py-4 text-sm font-bold text-slate-300">{{ $scan->scanned_files }}</td>
+                                <td class="px-4 py-4 text-sm font-bold text-slate-300">{{ count($scan->findings ?? []) }}</td>
+                                <td class="px-4 py-4 text-xs font-semibold text-slate-400">{{ $scan->scanned_at?->diffForHumans() ?? 'Unknown' }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-4 py-8 text-center text-sm font-semibold text-slate-500">No webshell scans stored yet.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
+
+        @if($activeTab === 'seo')
+        <div class="space-y-8">
+            <div class="rounded-[2rem] border border-white/5 bg-slate-900 p-8 shadow-2xl">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Forensic URL Check</h2>
+                        <p class="mt-1 text-sm font-medium text-slate-400">Scan live responses for cloaking, poisoning, injected content, and suspicious SEO changes.</p>
+                    </div>
+                    <form action="{{ route('seo-security.scan') }}" method="POST" class="flex flex-col gap-2 sm:flex-row">
+                        @csrf
+                        <input type="url" name="url" placeholder="https://example.com" value="{{ old('url', $manual_url ?? '') }}" required
+                            class="w-full rounded-xl border-none bg-white/5 px-4 py-3 text-sm text-white transition-all placeholder:text-slate-600 focus:ring-2 focus:ring-orange-500 sm:w-96">
+                        <button type="submit" class="rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-orange-600/20 transition-all hover:bg-orange-500 active:scale-95">
+                            SCAN
+                        </button>
+                    </form>
+                </div>
+            </div>
 
         @if(session('manual_scan_result'))
             <div class="bg-slate-900 rounded-[2rem] p-8 border-2 {{ session('manual_scan_result')['status'] === 'clean' ? 'border-emerald-500/30' : 'border-red-500/30' }} shadow-2xl animate-in fade-in zoom-in-95 duration-500">
@@ -165,6 +318,9 @@
                 </div>
             </div>
         </div>
+
+        </div>
+        @endif
 
     </div>
 </x-app-layout>

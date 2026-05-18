@@ -51,25 +51,53 @@
             </div>
         </section>
 
+        @if($groups->isNotEmpty())
+            <section class="glass rounded-2xl p-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="text-xs font-black uppercase tracking-widest text-slate-400">Monitor Groups</div>
+                        <div class="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">{{ $groupFilter ? 'Filtered by '.$groupFilter : 'Showing all groups' }}</div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{{ route('dashboard') }}" class="rounded-xl px-3 py-2 text-xs font-black {{ $groupFilter ? 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300' : 'bg-orange-600 text-white' }}">All</a>
+                        @foreach($groups as $group)
+                            <a href="{{ route('dashboard', ['group' => $group]) }}" class="rounded-xl px-3 py-2 text-xs font-black {{ $groupFilter === $group ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300' }}">{{ $group }}</a>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
+        @endif
+
         <!-- Monitors Grid -->
         <section class="grid gap-6 lg:grid-cols-2">
             @forelse($monitors as $monitor)
                 @php
                     $result = $monitor->latestResult;
                     $isUp = (bool) ($result?->is_up);
+                    $isUnderMaintenance = $monitor->isUnderMaintenance();
                 @endphp
 
                 <article class="glass rounded-2xl p-6 transition-all duration-300 hover:shadow-xl relative overflow-hidden group">
                     <div class="absolute top-0 right-0 p-4">
                         <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold {{ $isUp ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' }}">
                             <span class="h-2 w-2 rounded-full {{ $isUp ? 'bg-green-500' : 'bg-red-500' }} animate-pulse"></span>
-                            {{ $isUp ? 'ONLINE' : 'OFFLINE' }}
+                            {{ $isUnderMaintenance ? 'MAINTENANCE' : ($isUp ? 'ONLINE' : 'OFFLINE') }}
                         </div>
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <h2 class="text-xl font-bold group-hover:text-orange-500 transition-colors">{{ $monitor->name }}</h2>
                         <a href="{{ $monitor->url }}" target="_blank" class="text-sm text-slate-500 hover:text-orange-400 truncate max-w-xs">{{ $monitor->url }}</a>
+                        @if($monitor->group || !empty($monitor->tags))
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                @if($monitor->group)
+                                    <span class="rounded-lg bg-orange-100 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-orange-700 dark:bg-orange-500/10 dark:text-orange-300">{{ $monitor->group }}</span>
+                                @endif
+                                @foreach(($monitor->tags ?? []) as $tag)
+                                    <span class="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 dark:bg-white/5 dark:text-slate-400">{{ $tag }}</span>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     <div class="mt-8 grid grid-cols-3 gap-4">

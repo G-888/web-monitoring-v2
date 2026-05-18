@@ -29,9 +29,14 @@ class SslRenewalReminderJob implements ShouldQueue
     public function handle(): void
     {
         $expiringSoon = Monitor::whereNotNull('ssl_expires_at')
-            ->where('ssl_expires_at', '<=', Carbon::now()->addDays(60))
             ->where('ssl_expires_at', '>', Carbon::now())
-            ->get();
+            ->whereNotNull('ssl_alert_threshold_days')
+            ->get()
+            ->filter(function (Monitor $monitor) {
+                $daysLeft = (int) floor(Carbon::now()->diffInDays($monitor->ssl_expires_at, false));
+
+                return $daysLeft <= (int) $monitor->ssl_alert_threshold_days;
+            });
 
         foreach ($expiringSoon as $monitor) {
             $this->sendSslReminder($monitor);
@@ -47,19 +52,12 @@ class SslRenewalReminderJob implements ShouldQueue
 
         $daysLeft = Carbon::now()->diffInDays($monitor->ssl_expires_at, false);
 
-        // Send email alerts
-        $emails = is_array($monitor->alert_emails) && count($monitor->alert_emails) > 0
-            ? $monitor->alert_emails
-            : ['suhailmajemi@gmail.com']; // TODO: Remove hardcoded
-
-        foreach ($emails as $email) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                Mail::to($email)->send(new SslCertificateExpiring($monitor, $daysLeft));
-            }
+        foreach ($monitor->alertEmailRecipients() as $email) {
+            Mail::to($email)->send(new SslCertificateExpiring($monitor, $daysLeft));
         }
 
         // Send advanced alerts (Slack/Discord)
-        if ($user->hasDirectPermission('module.advanced_alerts')) {
+        if ($user->can('module.advanced_alerts')) {
             $channels = $user->alertChannels()->where('is_active', true)->get();
             foreach ($channels as $channel) {
                 if ($channel->type === 'slack' || $channel->type === 'discord') {
@@ -74,6 +72,6 @@ class SslRenewalReminderJob implements ShouldQueue
             }
         }
 
-        Log::info('SSL renewal reminder sent for monitor: ' . $monitor->name . ', expires: ' . $monitor->ssl_expires_at);
+        Log::info('SSL renewal reminder processed for monitor: ' . $monitor->name . ', expires: ' . $monitor->ssl_expires_at);
     }
 }

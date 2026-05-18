@@ -19,6 +19,9 @@ class CheckServerHeartbeats implements ShouldQueue
             ->whereNotNull('last_heartbeat_at')
             ->get()
             ->each(function (Server $server) use ($alerts) {
+                if ($server->isUnderMaintenance()) {
+                    return;
+                }
                 if (!$this->isOffline($server) || !$this->canAlert($server)) {
                     return;
                 }

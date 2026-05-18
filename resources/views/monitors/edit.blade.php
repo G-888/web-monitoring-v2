@@ -24,6 +24,22 @@
                 <x-input-error :messages="$errors->get('url')" class="mt-2" />
             </div>
 
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="group">Group</label>
+                    <input id="group" type="text" name="group" value="{{ old('group', $monitor->group) }}" placeholder="Production, Agency, Project"
+                        class="mt-1 w-full rounded border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <x-input-error :messages="$errors->get('group')" class="mt-2" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="tags">Tags</label>
+                    <input id="tags" type="text" name="tags" value="{{ old('tags', is_array($monitor->tags) ? implode(', ', $monitor->tags) : '') }}" placeholder="public, critical, cms"
+                        class="mt-1 w-full rounded border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <x-input-error :messages="$errors->get('tags')" class="mt-2" />
+                </div>
+            </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700" for="interval">Check interval in seconds</label>
                 <input id="interval" type="number" name="interval" value="{{ old('interval', $monitor->interval) }}" min="30" max="86400"
@@ -37,6 +53,25 @@
                 <input id="alert_emails" type="text" name="alert_emails" value="{{ old('alert_emails', is_array($monitor->alert_emails) ? implode(', ', $monitor->alert_emails) : '') }}" placeholder="admin@example.com, alerts@example.com"
                     class="mt-1 w-full rounded border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 <x-input-error :messages="$errors->get('alert_emails')" class="mt-2" />
+            </div>
+
+            <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
+                <h3 class="text-sm font-semibold text-gray-800">Maintenance window</h3>
+                <p class="mt-1 text-sm text-gray-600">Alerts are temporarily suspended while this maintenance window is active.</p>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="maintenance_starts_at">Starts at</label>
+                        <input id="maintenance_starts_at" type="datetime-local" name="maintenance_starts_at" value="{{ old('maintenance_starts_at', optional($monitor->maintenance_starts_at)->format('Y-m-d\TH:i')) }}"
+                            class="mt-1 w-full rounded border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <x-input-error :messages="$errors->get('maintenance_starts_at')" class="mt-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="maintenance_ends_at">Ends at</label>
+                        <input id="maintenance_ends_at" type="datetime-local" name="maintenance_ends_at" value="{{ old('maintenance_ends_at', optional($monitor->maintenance_ends_at)->format('Y-m-d\TH:i')) }}"
+                            class="mt-1 w-full rounded border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <x-input-error :messages="$errors->get('maintenance_ends_at')" class="mt-2" />
+                    </div>
+                </div>
             </div>
 
             @if(auth()->user()->hasRole('Super Admin'))

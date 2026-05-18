@@ -3,6 +3,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
+const packageJson = require('./package.json');
 
 class ServerMonitorAgent {
     constructor() {
@@ -51,7 +52,8 @@ class ServerMonitorAgent {
                         'worker'
                     ]
                 ),
-                windowsServiceDiscoveryLimit: Number(process.env.SERVER_MONITOR_WINDOWS_SERVICE_DISCOVERY_LIMIT || fileConfig.windowsServiceDiscoveryLimit || 50)
+                windowsServiceDiscoveryLimit: Number(process.env.SERVER_MONITOR_WINDOWS_SERVICE_DISCOVERY_LIMIT || fileConfig.windowsServiceDiscoveryLimit || 50),
+                agentVersion: process.env.SERVER_MONITOR_AGENT_VERSION || fileConfig.agentVersion || packageJson.version,
             };
 
             if (!config.serverId || !config.apiUrl || !config.apiKey) {
@@ -125,6 +127,7 @@ class ServerMonitorAgent {
                 disk_used: hasDiskMetrics ? Math.round((diskUsage.used / (1024 ** 3)) * 100) / 100 : 0, // GB
                 disk_total: hasDiskMetrics ? Math.round((diskUsage.size / (1024 ** 3)) * 100) / 100 : 0.01, // GB
                 timestamp: new Date().toISOString(),
+                agent_version: this.config.agentVersion,
                 services,
                 command_results: this.pendingCommandResults
             };

@@ -30,6 +30,7 @@ class MetricsController extends Controller
             'disk_used' => 'required|numeric|min:0',
             'disk_total' => 'required|numeric|min:0.01',
             'timestamp' => 'required|date',
+            'agent_version' => 'nullable|string|max:255',
             'services' => 'nullable|array|max:100',
             'services.*.name' => 'required_with:services|string|max:255',
             'services.*.display_name' => 'nullable|string|max:255',
@@ -56,6 +57,10 @@ class MetricsController extends Controller
 
         if (!$server || !$server->is_active) {
             return response()->json(['error' => 'Server is not registered or active'], 403);
+        }
+
+        if (! empty($validated['agent_version'])) {
+            $server->forceFill(['agent_version' => $validated['agent_version']])->save();
         }
 
         try {

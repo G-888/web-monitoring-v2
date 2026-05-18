@@ -10,8 +10,10 @@ A self-hosted distributed server monitoring system with a central Laravel dashbo
 - Database queue processing
 - WebSocket broadcasting via Laravel Reverb
 - Tailwind + Vite frontend with dark-mode analytics
+- SSL expiry monitor dashboard with daily certificate refresh
 - SSL multi-converter for PEM, DER, and PFX formats
 - Server log scanner with ripgrep-powered log analysis
+- Webshell detection for allowed local web roots
 
 ## Docker Deployment
 
@@ -81,10 +83,12 @@ Then open `http://127.0.0.1:8000`.
 
 - `/dashboard` - Main user dashboard with SSL expiry tracking.
 - `/server-resources` - Real-time server resource monitoring.
-- `/servers` - Server inventory, heartbeat status, thresholds, and Windows service monitoring.
+- `/servers` - Server inventory with groups/tags, heartbeat status, thresholds, agent setup snippets, and Windows service monitoring.
 - `/servers/windows-services` - Windows service details and control commands.
 - `/database-monitors` - Database connection checks with response-time history and failure alerts.
 - `/log-inspections` - AI-powered log inspection.
+- `/ssl-monitors` - Dedicated SSL expiry dashboard for HTTPS monitors.
+- `/seo-security` - SEO poisoning, file integrity, and webshell detection.
 - `/ssl-conversion` - Multi-format SSL certificate converter.
 
 ## Server Agent Notes
@@ -93,7 +97,7 @@ Server metrics are accepted only for active inventory rows whose `server_id` mat
 
 Windows service Start/Stop/Restart is intentionally split from normal metrics access. Users need both `module.server_metrics` to view server inventory/resources and `module.service_control` to queue service control commands.
 
-Database monitoring uses `module.database_monitoring`. Stored database passwords are encrypted with Laravel's application key, so keep `APP_KEY` stable after configuring monitors.
+Database monitoring uses `module.database_monitoring`. Stored database passwords are encrypted with Laravel's application key, so keep `APP_KEY` stable after configuring monitors. The Docker image includes MySQL/MariaDB and PostgreSQL PDO drivers.
 
 When rebuilding the Windows agent, stop the running executable before replacement:
 

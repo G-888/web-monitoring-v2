@@ -15,7 +15,8 @@ class ServerController extends Controller
             'latestMetric',
             'windowsServices' => fn ($query) => $query->where('is_monitored', true),
         ])
-            ->latest('created_at')
+            ->orderBy('group')
+            ->orderBy('name')
             ->get();
 
         return view('servers.index', compact('servers'));
@@ -34,6 +35,8 @@ class ServerController extends Controller
             'ip_address' => ['nullable', 'ip'],
             'os' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
+            'group' => ['nullable', 'string', 'max:255'],
+            'tags' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'is_active' => ['nullable', 'boolean'],
@@ -43,10 +46,13 @@ class ServerController extends Controller
             'disk_threshold' => ['nullable', 'numeric', 'between:0,100'],
             'offline_threshold_seconds' => ['required', 'integer', 'min:5', 'max:3600'],
             'alert_cooldown_seconds' => ['required', 'integer', 'min:60', 'max:86400'],
+            'maintenance_starts_at' => ['nullable', 'date'],
+            'maintenance_ends_at' => ['nullable', 'date', 'after_or_equal:maintenance_starts_at'],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['alerts_enabled'] = $request->boolean('alerts_enabled', true);
+        $validated['tags'] = $this->parseTags($validated['tags'] ?? null);
 
         Server::create($validated);
 
@@ -67,6 +73,8 @@ class ServerController extends Controller
             'ip_address' => ['nullable', 'ip'],
             'os' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
+            'group' => ['nullable', 'string', 'max:255'],
+            'tags' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'is_active' => ['nullable', 'boolean'],
@@ -76,10 +84,13 @@ class ServerController extends Controller
             'disk_threshold' => ['nullable', 'numeric', 'between:0,100'],
             'offline_threshold_seconds' => ['required', 'integer', 'min:5', 'max:3600'],
             'alert_cooldown_seconds' => ['required', 'integer', 'min:60', 'max:86400'],
+            'maintenance_starts_at' => ['nullable', 'date'],
+            'maintenance_ends_at' => ['nullable', 'date', 'after_or_equal:maintenance_starts_at'],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['alerts_enabled'] = $request->boolean('alerts_enabled', true);
+        $validated['tags'] = $this->parseTags($validated['tags'] ?? null);
 
         $server->update($validated);
 
@@ -93,5 +104,15 @@ class ServerController extends Controller
 
         return redirect()->route('servers.index')
             ->with('success', 'Server removed from inventory.');
+    }
+
+    private function parseTags(?string $tags): array
+    {
+        return collect(explode(',', (string) $tags))
+            ->map(fn (string $tag) => trim($tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

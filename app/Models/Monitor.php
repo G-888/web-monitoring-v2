@@ -12,6 +12,8 @@ class Monitor extends Model
         'user_id',
         'name',
         'url',
+        'group',
+        'tags',
         'interval',
         'is_active',
         'seo_baseline',
@@ -19,13 +21,21 @@ class Monitor extends Model
         'alert_emails',
         'ssl_expires_at',
         'ssl_issuer',
+        'ssl_last_error',
+        'ssl_alert_threshold_days',
+        'maintenance_starts_at',
+        'maintenance_ends_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'seo_enabled' => 'boolean',
         'alert_emails' => 'array',
+        'tags' => 'array',
         'ssl_expires_at' => 'datetime',
+        'ssl_alert_threshold_days' => 'integer',
+        'maintenance_starts_at' => 'datetime',
+        'maintenance_ends_at' => 'datetime',
     ];
 
     public function user()
@@ -57,6 +67,38 @@ class Monitor extends Model
     public function seoResults()
     {
         return $this->hasMany(SeoResult::class);
+    }
+
+    public function isUnderMaintenance(): bool
+    {
+        if (! $this->maintenance_starts_at) {
+            return false;
+        }
+
+        if (! $this->maintenance_ends_at) {
+            return now()->gte($this->maintenance_starts_at);
+        }
+
+        return now()->between($this->maintenance_starts_at, $this->maintenance_ends_at);
+    }
+
+    public function alertEmailRecipients(): array
+    {
+        $configuredEmails = collect($this->alert_emails ?? [])
+            ->map(fn ($email) => trim((string) $email))
+            ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values();
+
+        if ($configuredEmails->isNotEmpty()) {
+            return $configuredEmails->all();
+        }
+
+        $ownerEmail = trim((string) $this->user?->email);
+
+        return filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)
+            ? [$ownerEmail]
+            : [];
     }
 
     /**

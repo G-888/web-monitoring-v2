@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DatabaseMonitorController;
+use App\Http\Controllers\IncidentController;
 use App\Http\Controllers\LogInspectionController;
 use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\ServerResourcesController;
+use App\Http\Controllers\SslMonitorController;
 use App\Http\Controllers\SslConversionController;
 use App\Http\Controllers\WindowsServiceController;
 use App\Models\Monitor;
@@ -129,6 +131,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/log-inspections', [LogInspectionController::class, 'index'])
         ->name('log-inspections.index');
 
+    Route::get('/incidents', [IncidentController::class, 'index'])
+        ->name('incidents.index');
+
     Route::post('/log-inspections', [LogInspectionController::class, 'store'])
         ->name('log-inspections.store');
 
@@ -144,8 +149,27 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ssl-conversion', [SslConversionController::class, 'convert'])
         ->name('ssl-conversion.convert');
 
+    Route::get('/ssl-monitors', [SslMonitorController::class, 'index'])
+        ->name('ssl-monitors.index');
+
+    Route::post('/ssl-monitors', [SslMonitorController::class, 'store'])
+        ->name('ssl-monitors.store');
+
+    Route::post('/ssl-monitors/check-all', [SslMonitorController::class, 'checkAll'])
+        ->name('ssl-monitors.check-all');
+
+    Route::post('/ssl-monitors/{monitor}/check', [SslMonitorController::class, 'check'])
+        ->name('ssl-monitors.check');
+
+    Route::patch('/ssl-monitors/{monitor}/threshold', [SslMonitorController::class, 'updateThreshold'])
+        ->name('ssl-monitors.threshold');
+
+    Route::delete('/ssl-monitors/{monitor}', [SslMonitorController::class, 'destroy'])
+        ->name('ssl-monitors.destroy');
+
     Route::get('/seo-security', [App\Http\Controllers\SeoSecurityController::class, 'index'])->name('seo-security.index');
     Route::post('/seo-security/scan', [App\Http\Controllers\SeoSecurityController::class, 'scan'])->name('seo-security.scan');
+    Route::post('/seo-security/webshell-scan', [App\Http\Controllers\SeoSecurityController::class, 'webshellScan'])->name('seo-security.webshell-scan');
 
     // Asset Intelligence
     Route::get('/assets', [App\Http\Controllers\AssetIntelligenceController::class, 'index'])->name('assets.index');

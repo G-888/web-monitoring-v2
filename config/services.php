@@ -79,4 +79,10 @@ return [
         'allowed_paths' => env('RIPGREP_ALLOWED_PATHS', storage_path('logs')),
     ],
 
+    'webshell' => [
+        'allowed_paths' => env('WEBSHELL_SCAN_ALLOWED_PATHS') ?: public_path(),
+        'max_file_size' => (int) env('WEBSHELL_SCAN_MAX_FILE_SIZE', 1048576),
+        'max_findings' => (int) env('WEBSHELL_SCAN_MAX_FINDINGS', 200),
+    ],
+
 ];
