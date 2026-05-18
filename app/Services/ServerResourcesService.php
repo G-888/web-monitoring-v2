@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use App\Models\Server;
 
 class ServerResourcesService
 {
@@ -26,36 +27,39 @@ class ServerResourcesService
      *   }
      * }
      */
-public function getSnapshot(): array
-{
-    $offlineThreshold = now()->subSeconds(15);
+    public function getSnapshot(): array
+    {
+        return Server::query()
+            ->where('is_active', true)
+            ->with('latestMetric')
+            ->orderBy('name')
+            ->get()
+            ->map(function (Server $server) {
+                $latest = $server->latestMetric;
 
-    $servers = \App\Models\ServerMetric::select('server_id')
-        ->distinct()
-        ->get();
+                if (!$latest) {
+                    return null;
+                }
 
-    return $servers->map(function ($server) use ($offlineThreshold) {
+                $isOnline = $server->last_heartbeat_at
+                    && $server->last_heartbeat_at->gt(now()->subSeconds($server->offline_threshold_seconds ?? 15));
 
-        $latest = \App\Models\ServerMetric::where('server_id', $server->server_id)
-            ->latest('created_at')
-            ->first();
-
-        if (!$latest) return null;
-
-        $isOnline = $latest->created_at >= $offlineThreshold;
-
-        return [
-            'server_id' => $server->server_id,
-            'cpu' => $latest->cpu,
-            'ram_used' => $latest->ram_used,
-            'ram_total' => $latest->ram_total,
-            'disk_used' => $latest->disk_used,
-            'disk_total' => $latest->disk_total,
-            'updated_at' => $latest->created_at->toISOString(),
-            'is_online' => $isOnline,
-        ];
-    })->filter()->values()->toArray();
-}
+                return [
+                    'server_id' => $server->server_id,
+                    'name' => $server->name,
+                    'cpu' => $latest->cpu,
+                    'ram_used' => $latest->ram_used,
+                    'ram_total' => $latest->ram_total,
+                    'disk_used' => $latest->disk_used,
+                    'disk_total' => $latest->disk_total,
+                    'updated_at' => $server->last_heartbeat_at?->toISOString() ?? $latest->timestamp->toISOString(),
+                    'is_online' => $isOnline,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->toArray();
+    }
 
     private function getCpuPercent(): float|null
     {

@@ -35,6 +35,10 @@ return [
         'verify_ssl' => filter_var(env('TELEGRAM_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
+    'agent' => [
+        'key' => env('AGENT_API_KEY'),
+    ],
+
     'seo_search' => [
         'enabled' => env('SEO_SEARCH_ENABLED', false),
         'providers' => array_filter(array_map('trim', explode(',', env('SEO_SEARCH_PROVIDERS', 'commoncrawl,wayback,urlscan,crtsh,google,brave')))),
@@ -56,7 +60,7 @@ return [
         'default_provider' => env('LOG_AI_PROVIDER', 'openrouter_free'),
         'fallback_enabled' => env('LOG_AI_FALLBACK_ENABLED', true),
         'timeout' => (int) env('LOG_AI_TIMEOUT', 30),
-        'verify_ssl' => env('LOG_AI_VERIFY_SSL', true),
+        'verify_ssl' => filter_var(env('LOG_AI_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
         'providers' => [
             'openrouter_free' => [
                 'api_key' => env('OPENROUTER_API_KEY'),

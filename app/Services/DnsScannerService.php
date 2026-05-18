@@ -30,6 +30,38 @@ class DnsScannerService
         return $results;
     }
 
+    public function detectChanges(int $monitorId, array $records): array
+    {
+        $changes = [];
+
+        foreach ($records as $record) {
+            $host = $record['host'] ?? '';
+            $type = $record['type'] ?? 'UNKNOWN';
+            $value = match ($type) {
+                'A', 'AAAA' => $record['ip'] ?? '',
+                'MX', 'NS', 'CNAME', 'PTR' => $record['target'] ?? '',
+                'TXT' => is_array($record['txt'] ?? null) ? implode(' ', $record['txt']) : ($record['txt'] ?? ''),
+                default => serialize($record),
+            };
+
+            $hash = md5($type . $host . $value);
+            $exists = \DB::table('dns_records')
+                ->where('monitor_id', $monitorId)
+                ->where('hash', $hash)
+                ->exists();
+
+            if (!$exists && \DB::table('dns_records')->where('monitor_id', $monitorId)->exists()) {
+                $changes[] = [
+                    'type' => $type,
+                    'host' => $host,
+                    'value' => $value,
+                ];
+            }
+        }
+
+        return $changes;
+    }
+
     /**
      * AI Risk Scoring Logic.
      */

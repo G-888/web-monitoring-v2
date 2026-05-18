@@ -5,6 +5,8 @@ services:
     build: .
     container_name: web_monitor_app
     restart: always
+    env_file:
+      - .env
     ports:
       - "8000:80"
     environment:
@@ -34,9 +36,21 @@ services:
     build: .
     container_name: web_monitor_reverb
     restart: always
+    env_file:
+      - .env
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     ports:
       - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_CONNECTION=mysql
+      - DB_DATABASE=${DB_DATABASE:-web_monitor}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
     depends_on:
       - app
 
@@ -44,7 +58,19 @@ services:
     build: .
     container_name: web_monitor_worker
     restart: always
+    env_file:
+      - .env
     command: php artisan queue:work --verbose --tries=3 --timeout=90
+    environment:
+      - DB_HOST=db
+      - DB_CONNECTION=mysql
+      - DB_DATABASE=${DB_DATABASE:-web_monitor}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
     depends_on:
       - db
       - app
@@ -53,7 +79,19 @@ services:
     build: .
     container_name: web_monitor_scheduler
     restart: always
+    env_file:
+      - .env
     command: sh -c "while [ true ]; do php artisan schedule:run --no-interaction & sleep 60; done"
+    environment:
+      - DB_HOST=db
+      - DB_CONNECTION=mysql
+      - DB_DATABASE=${DB_DATABASE:-web_monitor}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
     depends_on:
       - db
       - app

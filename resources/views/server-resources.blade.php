@@ -18,6 +18,53 @@
             </div>
         </div>
 
+        <div class="glass rounded-3xl p-6 shadow-xl">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h3 class="text-xl font-bold">Metric History</h3>
+                    <p class="mt-1 text-sm text-slate-500">CPU, memory, and storage trends from stored agent samples.</p>
+                </div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <select x-model="selectedServerId" @change="loadHistory()" class="rounded-xl border-slate-200 bg-white text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-200">
+                        <template x-for="server in servers" :key="'option-' + server.server_id">
+                            <option :value="server.server_id" x-text="server.server_id"></option>
+                        </template>
+                    </select>
+                    <select x-model="historyHours" @change="loadHistory()" class="rounded-xl border-slate-200 bg-white text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-200">
+                        <option value="1">1 hour</option>
+                        <option value="6">6 hours</option>
+                        <option value="24">24 hours</option>
+                        <option value="168">7 days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div x-show="selectedServerId" class="mt-6 grid gap-4 lg:grid-cols-3">
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
+                    <div class="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">CPU</div>
+                    <div class="h-48">
+                        <canvas id="server-history-cpu"></canvas>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
+                    <div class="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Memory</div>
+                    <div class="h-48">
+                        <canvas id="server-history-ram"></canvas>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
+                    <div class="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Storage</div>
+                    <div class="h-48">
+                        <canvas id="server-history-disk"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="!selectedServerId" x-cloak class="mt-6 rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 dark:border-white/10">
+                Waiting for server metrics.
+            </div>
+        </div>
+
         <!-- Grid Container -->
         <div class="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
             <template x-for="server in servers" :key="server.server_id">
@@ -84,14 +131,19 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         function serverMonitor() {
             return {
                 servers: [],
                 lastUpdate: null,
+                selectedServerId: null,
+                historyHours: 6,
+                charts: {},
                 
                 async init() {
                     await this.load();
+                    await this.loadHistory();
                     setInterval(() => this.load(), 5000);
                 },
 
@@ -100,10 +152,92 @@
                         const res = await fetch('{{ route("server-resources.snapshot") }}');
                         const data = await res.json();
                         this.servers = data;
+                        if (!this.selectedServerId && data.length > 0) {
+                            this.selectedServerId = data[0].server_id;
+                        }
                         this.lastUpdate = new Date().toLocaleTimeString();
                     } catch (e) {
                         console.error('Failed to sync server metrics');
                     }
+                },
+
+                async loadHistory() {
+                    if (!this.selectedServerId) {
+                        return;
+                    }
+
+                    try {
+                        const params = new URLSearchParams({
+                            server_id: this.selectedServerId,
+                            hours: this.historyHours,
+                        });
+                        const res = await fetch('{{ route("server-resources.history") }}?' + params.toString());
+                        const data = await res.json();
+                        this.$nextTick(() => this.renderHistory(data));
+                    } catch (e) {
+                        console.error('Failed to load server metric history');
+                    }
+                },
+
+                renderHistory(data) {
+                    this.renderChart('cpu', 'server-history-cpu', data.labels, data.cpu, '#f97316');
+                    this.renderChart('ram', 'server-history-ram', data.labels, data.ram, '#10b981');
+                    this.renderChart('disk', 'server-history-disk', data.labels, data.disk, '#3b82f6');
+                },
+
+                renderChart(key, canvasId, labels, values, color) {
+                    const canvas = document.getElementById(canvasId);
+                    if (!canvas || !window.Chart) {
+                        return;
+                    }
+
+                    if (this.charts[key]) {
+                        this.charts[key].data.labels = labels;
+                        this.charts[key].data.datasets[0].data = values;
+                        this.charts[key].update();
+                        return;
+                    }
+
+                    this.charts[key] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [{
+                                data: values,
+                                borderColor: color,
+                                backgroundColor: color + '20',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.35,
+                                pointRadius: 0,
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: context => `${context.parsed.y ?? 0}%`,
+                                    },
+                                },
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { maxTicksLimit: 6 },
+                                },
+                                y: {
+                                    min: 0,
+                                    max: 100,
+                                    ticks: {
+                                        callback: value => value + '%',
+                                    },
+                                },
+                            },
+                        },
+                    });
                 },
 
                 formatTime(iso) {

@@ -19,10 +19,12 @@ return new class extends Migration
         } elseif ($connection === 'pgsql') {
             DB::statement('ALTER TABLE telegram_settings ALTER COLUMN bot_token TYPE TEXT');
         } elseif ($connection === 'sqlite') {
-            // SQLite does not support MODIFY; use schema rebuild if needed.
-            Schema::table('telegram_settings', function (Blueprint $table) {
-                $table->text('bot_token')->nullable();
-            });
+            // The original column already exists in fresh SQLite test databases.
+            if (!Schema::hasColumn('telegram_settings', 'bot_token')) {
+                Schema::table('telegram_settings', function (Blueprint $table) {
+                    $table->text('bot_token')->nullable();
+                });
+            }
         }
     }
 
@@ -38,9 +40,11 @@ return new class extends Migration
         } elseif ($connection === 'pgsql') {
             DB::statement('ALTER TABLE telegram_settings ALTER COLUMN bot_token TYPE VARCHAR(255)');
         } elseif ($connection === 'sqlite') {
-            Schema::table('telegram_settings', function (Blueprint $table) {
-                $table->string('bot_token', 255)->nullable();
-            });
+            if (!Schema::hasColumn('telegram_settings', 'bot_token')) {
+                Schema::table('telegram_settings', function (Blueprint $table) {
+                    $table->string('bot_token', 255)->nullable();
+                });
+            }
         }
     }
 };

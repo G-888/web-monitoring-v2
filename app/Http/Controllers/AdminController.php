@@ -116,6 +116,7 @@ class AdminController extends Controller
     public function editPermissions(User $user): View
     {
         $permissions = \Spatie\Permission\Models\Permission::all()->groupBy(function($perm) {
+            if (str_starts_with($perm->name, 'module.service_control')) return 'Privileged Controls';
             if (str_starts_with($perm->name, 'module.')) return 'Modules & Features';
             if (str_contains($perm->name, 'monitor')) return 'Monitors';
             if (str_contains($perm->name, 'log')) return 'Logs & Analysis';

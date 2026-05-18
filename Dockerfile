@@ -16,10 +16,43 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl
-
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    libicu-dev \
+    libonig-dev \
+    libxml2-dev \
+    libpq-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    git \
+    curl \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        pdo_mysql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+        intl
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
+
+# Match Laravel's log inspection upload limit. post_max_size must be larger
+# than upload_max_filesize so PHP does not discard the request before Laravel.
+RUN { \
+    echo "upload_max_filesize=100M"; \
+    echo "post_max_size=110M"; \
+    echo "memory_limit=256M"; \
+    echo "max_execution_time=120"; \
+    echo "max_input_time=120"; \
+} > /usr/local/etc/php/conf.d/uploads.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -43,7 +76,10 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
 # Install dependencies and build assets
-RUN composer install --no-dev --optimize-autoloader
+RUN mkdir -p /var/www/html/database \
+    && touch /var/www/html/database/database.sqlite
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
 RUN npm install && npm run build
 
 # Expose port 80

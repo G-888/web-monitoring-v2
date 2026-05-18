@@ -9,9 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Monitor;
 use App\Services\DnsScannerService;
-use App\Models\Alert;
-use App\Models\DnsRecord;
-use App\Models\DiscoveredSubdomain;
+use Illuminate\Support\Facades\Log;
 
 class ScanDnsIntelligenceJob implements ShouldQueue
 {
@@ -86,12 +84,9 @@ class ScanDnsIntelligenceJob implements ShouldQueue
             $message .= "- [{$change['type']}] {$change['host']} -> {$change['value']}\n";
         }
 
-        // Integrated with existing Alert system
-        \App\Models\Alert::create([
+        Log::warning('DNS changes detected', [
             'monitor_id' => $this->monitor->id,
-            'type' => 'DNS_CHANGE',
             'message' => $message,
-            'severity' => 'warning'
         ]);
     }
 }

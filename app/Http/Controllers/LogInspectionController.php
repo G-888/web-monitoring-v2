@@ -14,6 +14,9 @@ class LogInspectionController extends Controller
 {
     private const MAX_UPLOAD_KB = 102400;
     private const PREVIEW_LINES = 400;
+    private const AI_PREVIEW_LINES = 80;
+    private const AI_MAX_LINE_CHARS = 220;
+    private const AI_MAX_HIGHLIGHTS = 25;
 
     public function index()
     {
@@ -120,6 +123,10 @@ class LogInspectionController extends Controller
         $logInspection->update([
             'ai_status' => 'processing',
             'ai_provider' => $selectedProvider,
+            'ai_model' => null,
+            'ai_summary' => null,
+            'ai_findings' => null,
+            'ai_analyzed_at' => null,
         ]);
 
         $candidates = $this->providerAttemptOrder($selectedProvider, $autoFallback);
@@ -412,10 +419,21 @@ class LogInspectionController extends Controller
 
     private function requestAiLogAnalysis(LogInspection $logInspection, array $providerConfig, array $serviceConfig): array
     {
-        $preview = $this->readPreviewLines($logInspection->stored_path, 1, 200);
+        $preview = $this->readPreviewLines($logInspection->stored_path, 1, self::AI_PREVIEW_LINES);
         $previewText = collect($preview['lines'])
-            ->map(fn (array $line) => $line['number'].': '.$line['text'])
+            ->map(fn (array $line) => $line['number'].': '.Str::limit((string) $line['text'], self::AI_MAX_LINE_CHARS))
             ->implode("\n");
+        $highlights = collect($logInspection->highlights ?? [])
+            ->take(self::AI_MAX_HIGHLIGHTS)
+            ->map(function (array $item) {
+                return [
+                    'level' => (string) ($item['level'] ?? 'info'),
+                    'line' => $item['line'] ?? null,
+                    'text' => Str::limit((string) ($item['text'] ?? ''), self::AI_MAX_LINE_CHARS),
+                ];
+            })
+            ->values()
+            ->all();
 
         $payload = [
             'model' => $providerConfig['model'] ?? 'gpt-4o-mini',
@@ -436,8 +454,9 @@ class LogInspectionController extends Controller
                             'info' => $logInspection->info_count,
                             'total_lines' => $logInspection->total_lines,
                         ],
-                        'highlights' => $logInspection->highlights ?? [],
+                        'highlights' => $highlights,
                         'preview_lines' => $previewText,
+                        'payload_note' => 'Preview is capped; rely on stats and sampled lines for analysis.',
                     ], JSON_UNESCAPED_SLASHES),
                 ],
             ],
@@ -447,7 +466,9 @@ class LogInspectionController extends Controller
         $baseUrl = rtrim((string) ($providerConfig['base_url'] ?? 'https://api.openai.com/v1'), '/');
         $verifySsl = (bool) ($serviceConfig['verify_ssl'] ?? true);
         
-        $request = Http::timeout((int) ($serviceConfig['timeout'] ?? 30))
+        $request = Http::timeout((int) ($serviceConfig['timeout'] ?? 60))
+            ->connectTimeout(10)
+            ->retry(1, 1000, throw: false)
             ->withToken((string) $providerConfig['api_key'])
             ->acceptJson();
 

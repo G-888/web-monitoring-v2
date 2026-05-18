@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\EmailSetting;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Schema;
 
 class EmailConfigServiceProvider extends ServiceProvider
 {
@@ -21,8 +23,16 @@ class EmailConfigServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Check if we have active email settings in database
-        $emailSetting = EmailSetting::getActive();
+        try {
+            if (! Schema::hasTable('email_settings')) {
+                return;
+            }
+
+            // Check if we have active email settings in database
+            $emailSetting = EmailSetting::getActive();
+        } catch (QueryException) {
+            return;
+        }
 
         if ($emailSetting) {
             // Override mail configuration with database settings

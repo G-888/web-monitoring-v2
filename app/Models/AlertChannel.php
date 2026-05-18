@@ -21,3 +21,4 @@ class AlertChannel extends Model
     {
         return $this->belongsTo(User::class);
     }
+}

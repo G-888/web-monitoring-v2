@@ -195,7 +195,7 @@
         
         // Listen for dark mode toggle to update charts
         window.addEventListener('click', (e) => {
-             if (e.target.closest('button[ @click*="darkMode"]')) {
+             if (e.target.closest('[data-theme-toggle]')) {
                  setTimeout(() => {
                     const isDark = document.documentElement.classList.contains('dark');
                     const accentColor = isDark ? '#fb923c' : '#f97316';

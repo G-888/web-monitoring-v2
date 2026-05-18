@@ -28,6 +28,8 @@ class RoleAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'module.advanced_alerts']);
         Permission::firstOrCreate(['name' => 'module.advanced_monitors']);
         Permission::firstOrCreate(['name' => 'module.server_metrics']);
+        Permission::firstOrCreate(['name' => 'module.service_control']);
+        Permission::firstOrCreate(['name' => 'module.database_monitoring']);
         Permission::firstOrCreate(['name' => 'module.log_ingestion']);
 
         // Create roles and assign created permissions

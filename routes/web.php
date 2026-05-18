@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\DatabaseMonitorController;
 use App\Http\Controllers\LogInspectionController;
 use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ServerController;
 use App\Http\Controllers\ServerResourcesController;
 use App\Http\Controllers\SslConversionController;
+use App\Http\Controllers\WindowsServiceController;
 use App\Models\Monitor;
 use Illuminate\Support\Facades\Route;
 
@@ -49,11 +52,63 @@ Route::middleware(['auth'])->group(function () {
         ->name('monitors.check');
 
     Route::middleware(['can:module.server_metrics'])->group(function () {
+        Route::get('/servers', [ServerController::class, 'index'])
+            ->name('servers.index');
+
+        Route::get('/servers/create', [ServerController::class, 'create'])
+            ->name('servers.create');
+
+        Route::post('/servers', [ServerController::class, 'store'])
+            ->name('servers.store');
+
+        Route::get('/servers/{server}/edit', [ServerController::class, 'edit'])
+            ->name('servers.edit');
+
+        Route::patch('/servers/{server}', [ServerController::class, 'update'])
+            ->name('servers.update');
+
+        Route::delete('/servers/{server}', [ServerController::class, 'destroy'])
+            ->name('servers.destroy');
+
+        Route::get('/servers/windows-services', [WindowsServiceController::class, 'index'])
+            ->name('servers.windows-services');
+
+        Route::post('/servers/{server}/windows-services', [WindowsServiceController::class, 'store'])
+            ->name('servers.windows-services.store');
+
+        Route::delete('/windows-services/{windowsService}', [WindowsServiceController::class, 'destroy'])
+            ->name('windows-services.destroy');
+
+        Route::middleware(['can:module.service_control'])->group(function () {
+            Route::post('/windows-services/{windowsService}/commands', [WindowsServiceController::class, 'command'])
+                ->name('windows-services.commands');
+        });
+
         Route::get('/server-resources', [ServerResourcesController::class, 'index'])
             ->name('server-resources');
 
         Route::get('/server-resources/snapshot', [ServerResourcesController::class, 'snapshot'])
             ->name('server-resources.snapshot');
+
+        Route::get('/server-resources/history', [ServerResourcesController::class, 'history'])
+            ->name('server-resources.history');
+    });
+
+    Route::middleware(['can:module.database_monitoring'])->group(function () {
+        Route::get('/database-monitors', [DatabaseMonitorController::class, 'index'])
+            ->name('database-monitors.index');
+        Route::get('/database-monitors/create', [DatabaseMonitorController::class, 'create'])
+            ->name('database-monitors.create');
+        Route::post('/database-monitors', [DatabaseMonitorController::class, 'store'])
+            ->name('database-monitors.store');
+        Route::get('/database-monitors/{databaseMonitor}/edit', [DatabaseMonitorController::class, 'edit'])
+            ->name('database-monitors.edit');
+        Route::patch('/database-monitors/{databaseMonitor}', [DatabaseMonitorController::class, 'update'])
+            ->name('database-monitors.update');
+        Route::delete('/database-monitors/{databaseMonitor}', [DatabaseMonitorController::class, 'destroy'])
+            ->name('database-monitors.destroy');
+        Route::post('/database-monitors/{databaseMonitor}/test', [DatabaseMonitorController::class, 'test'])
+            ->name('database-monitors.test');
     });
 
     Route::get('/server-logs/scan', [\App\Http\Controllers\ServerLogScannerController::class, 'index'])

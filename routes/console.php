@@ -14,6 +14,12 @@ Schedule::call(function () {
     }
 })->everyFiveMinutes();
 
+Schedule::call(function () {
+    foreach (\App\Models\DatabaseMonitor::where('is_active', true)->get() as $databaseMonitor) {
+        \App\Jobs\CheckDatabaseConnection::dispatch($databaseMonitor);
+    }
+})->everyFiveMinutes();
+
 // SEO Poisoning Detection
 Schedule::command('app:run-seo-checks')->hourly();
 Schedule::command('app:run-internal-crawl')->daily();
@@ -23,6 +29,9 @@ Schedule::command('app:run-file-integrity-checks')->everyTenMinutes();
 
 // SSL renewal reminders daily
 Schedule::job(new \App\Jobs\SslRenewalReminderJob)->daily();
+
+// Server heartbeat/offline threshold alerts
+Schedule::job(new \App\Jobs\CheckServerHeartbeats)->everyMinute();
 
 // Default Laravel example command (you can keep or remove)
 Artisan::command('inspire', function () {

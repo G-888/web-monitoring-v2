@@ -56,7 +56,13 @@
             "dev-master": "11.x-dev"
         },
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "laravel/breeze",
+                "laravel/sail",
+                "nunomaduro/collision",
+                "pestphp/pest-plugin-laravel",
+                "spatie/laravel-ignition"
+            ]
         }
     },
     "config": {
