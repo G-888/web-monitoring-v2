@@ -1,0 +1,34 @@
+{
+  "serverId": "local-test",
+  "apiUrl": "http://127.0.0.1:8000/api/metrics",
+  "apiKey": "local-dev-agent-key-change-me",
+  "intervalSeconds": 5,
+  "retryAttempts": 3,
+  "retryDelayMs": 1000,
+  "requestTimeoutMs": 10000,
+  "autoDiscoverWindowsServices": true,
+  "windowsServiceDiscoveryPatterns": [
+    "coldfusion",
+    "cfusion",
+    "mysql",
+    "mariadb",
+    "mssql",
+    "sql server",
+    "postgres",
+    "redis",
+    "apache",
+    "nginx",
+    "tomcat",
+    "iis",
+    "w3svc",
+    "node",
+    "pm2",
+    "queue",
+    "worker"
+  ],
+  "windowsServiceDiscoveryLimit": 50,
+  "windowsServices": [
+    "Spooler",
+    "WinDefend"
+  ]
+}

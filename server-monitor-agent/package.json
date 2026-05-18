@@ -1,0 +1,33 @@
+{
+  "name": "server-monitor-agent",
+  "version": "1.0.0",
+  "description": "Lightweight server monitoring agent",
+  "main": "agent.js",
+  "bin": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "dev": "nodemon agent.js",
+    "build:exe": "pkg agent.js --targets node18-win-x64 --output dist/server-monitor-agent.exe"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "systeminformation": "^5.31.6"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.19.0",
+    "nodemon": "^3.0.0"
+  },
+  "keywords": [
+    "monitoring",
+    "server",
+    "metrics",
+    "agent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "pkg": {
+    "assets": [
+      "config.json"
+    ]
+  }
+}
