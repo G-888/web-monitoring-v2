@@ -9,14 +9,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('servers', function (Blueprint $table) {
-            $table->string('agent_version')->nullable()->after('last_heartbeat_at');
+            if (! Schema::hasColumn('servers', 'agent_version')) {
+                $table->string('agent_version')->nullable()->after('last_heartbeat_at');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('servers', function (Blueprint $table) {
-            $table->dropColumn('agent_version');
+            if (Schema::hasColumn('servers', 'agent_version')) {
+                $table->dropColumn('agent_version');
+            }
         });
     }
 };

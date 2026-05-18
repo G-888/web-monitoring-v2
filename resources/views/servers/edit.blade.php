@@ -21,7 +21,7 @@
                     <x-input-error :messages="$errors->get('server_id')" class="mt-1" />
                 </div>
 
-                <div class="grid gap-6 md:grid-cols-2">
+                <div class="grid gap-6 md:grid-cols-3">
                     <div class="space-y-2">
                         <x-input-label for="ip_address" :value="__('IP Address')" />
                         <x-text-input id="ip_address" name="ip_address" type="text" class="w-full" value="{{ old('ip_address', $server->ip_address) }}" placeholder="192.168.1.10" autocomplete="off" />
@@ -32,6 +32,12 @@
                         <x-input-label for="os" :value="__('Operating System')" />
                         <x-text-input id="os" name="os" type="text" class="w-full" value="{{ old('os', $server->os) }}" placeholder="Linux / Windows" autocomplete="off" />
                         <x-input-error :messages="$errors->get('os')" class="mt-1" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="server_type" :value="__('Server Type')" />
+                        <x-text-input id="server_type" name="server_type" type="text" class="w-full" value="{{ old('server_type', $server->server_type) }}" placeholder="application, database, web" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('server_type')" class="mt-1" />
                     </div>
                 </div>
 
@@ -149,17 +155,54 @@
                     </div>
 
                 <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-                    <h3 class="text-sm font-semibold text-slate-100">Agent Install Settings</h3>
-                    <div class="mt-3 overflow-x-auto rounded border border-white/10 bg-slate-950 p-3 text-xs text-slate-200">
-<pre>{
-  "serverId": "{{ $server->server_id }}",
-  "apiUrl": "{{ url('/api/metrics') }}",
-  "apiKey": "&lt;AGENT_API_KEY&gt;",
-  "intervalSeconds": 5,
-  "autoDiscoverWindowsServices": true
-}</pre>
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-100">Agent Install Settings</h3>
+                            <p class="mt-1 text-xs text-slate-400">Download config or copy a ready-to-run install/update command.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="{{ route('agents.config', $server) }}" class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">Download config</a>
+                            <button type="button" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" onclick="copyText('install-command')">Copy install</button>
+                            <button type="button" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" onclick="copyText('update-command')">Copy update</button>
+                        </div>
                     </div>
-                    <p class="mt-3 text-xs text-slate-400">Place this in the agent config next to the executable, then run the scheduled task installer from an Administrator PowerShell session.</p>
+
+                    <div class="mt-3 overflow-x-auto rounded border border-white/10 bg-slate-950 p-3 text-xs text-slate-200">
+<pre id="install-command">powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://example.com/ServerMonitorAgent/installer/install-service.ps1' -OutFile 'install-service.ps1'; .\install-service.ps1"</pre>
+                    </div>
+                    <div class="mt-3 overflow-x-auto rounded border border-white/10 bg-slate-950 p-3 text-xs text-slate-200">
+<pre id="update-command">powershell -NoProfile -ExecutionPolicy Bypass -Command "& { Stop-Service ServerMonitorAgent; Copy-Item -Path '.\\dist\\server-monitor-agent-new.exe' -Destination 'C:\\Program Files\\ServerMonitorAgent\\server-monitor-agent.exe' -Force; Start-Service ServerMonitorAgent }"</pre>
+                    </div>
+                    <p class="mt-3 text-xs text-slate-400">Copy these PowerShell commands and paste them into an elevated PowerShell window.</p>
+                </div>
+
+                    <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                        <h3 class="text-sm font-semibold text-slate-100">Agent Reported Info</h3>
+                        <div class="mt-2 text-sm text-slate-200">
+                            <div>Version: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_version ?? 'Not reported' }}</span></div>
+                            <div>Config schema: <span class="font-medium text-slate-900 dark:text-white">{{ $server->config_schema_version ?? '—' }}</span></div>
+                            <div>Hostname: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_hostname ?? '—' }}</span></div>
+                            <div>OS: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_os ?? $server->os ?? '—' }}</span></div>
+                            <div>Runtime: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_runtime ?? '—' }}</span></div>
+                            <div>Capabilities: <span class="font-medium text-slate-900 dark:text-white">{{ is_array($server->capabilities) ? implode(', ', $server->capabilities) : ($server->capabilities ?? '—') }}</span></div>
+                        </div>
+                    </div>
+
+                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <h3 class="text-sm font-semibold text-slate-100">Used by Applications</h3>
+                    @if($server->applications->isEmpty())
+                        <p class="text-sm text-slate-400">This server is not assigned to any application.</p>
+                    @else
+                        <ul>
+                            @foreach($server->applications as $app)
+                                <li>
+                                    <a href="{{ route('applications.show', $app->id) }}" class="font-medium">{{ $app->name }}</a>
+                                    – role: {{ $app->pivot->role ?? 'n/a' }}
+                                    @if($app->pivot->is_primary) <span class="text-xs text-green-400">(primary)</span>@endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
                 </div>
 
                 <div class="flex items-center justify-between gap-3 pt-2">
@@ -172,5 +215,40 @@
                 </div>
             </form>
         </div>
+
+        <div class="mt-6 rounded-lg glass p-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-100">Agent Deployment Generator</h3>
+                    <p class="mt-1 text-xs text-slate-400">Preview config options, download a keyed package, or rotate this server's agent key.</p>
+                </div>
+            </div>
+            <div class="mt-4">
+                @include('agents._deployment-actions', ['server' => $server, 'context' => 'server-edit'])
+            </div>
+        </div>
     </div>
+
+<script>
+    function copyText(elementId) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        navigator.clipboard.writeText(element.textContent.trim())
+            .then(() => {
+                alert('Command copied to clipboard');
+            })
+            .catch(() => {
+                alert('Unable to copy command');
+            });
+    }
+
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-copy-text]');
+        if (!button) {
+            return;
+        }
+
+        navigator.clipboard.writeText(button.dataset.copyText || '');
+    });
+</script>
 </x-app-layout>

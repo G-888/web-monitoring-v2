@@ -38,7 +38,16 @@ Create the server inventory row in the dashboard first. The `/servers` page show
      "autoDiscoverWindowsServices": true,
      "windowsServiceDiscoveryPatterns": ["coldfusion", "cfusion", "mysql", "mariadb", "iis", "w3svc"],
      "windowsServiceDiscoveryLimit": 50,
-     "windowsServices": ["Spooler", "WinDefend"]
+     "windowsServices": ["Spooler", "WinDefend"],
+     "iisLogs": {
+       "enabled": false,
+       "paths": ["C:/inetpub/logs/LogFiles"],
+       "scanIntervalSeconds": 60,
+       "summaryOnly": true,
+       "maxLinesPerRun": 5000,
+       "sendRawSamples": false,
+       "sampleLimit": 20
+     }
    }
    ```
 
@@ -56,6 +65,12 @@ Create the server inventory row in the dashboard first. The `/servers` page show
    SERVER_MONITOR_WINDOWS_SERVICE_DISCOVERY_PATTERNS=coldfusion,cfusion,mysql,mariadb,iis,w3svc
    SERVER_MONITOR_WINDOWS_SERVICE_DISCOVERY_LIMIT=50
    SERVER_MONITOR_WINDOWS_SERVICES=Spooler,WinDefend
+   SERVER_MONITOR_IIS_LOGS_ENABLED=false
+   SERVER_MONITOR_IIS_LOG_PATHS=C:/inetpub/logs/LogFiles
+   SERVER_MONITOR_IIS_LOG_SCAN_INTERVAL_SECONDS=60
+   SERVER_MONITOR_IIS_LOG_MAX_LINES_PER_RUN=5000
+   SERVER_MONITOR_IIS_LOG_SEND_RAW_SAMPLES=false
+   SERVER_MONITOR_IIS_LOG_SAMPLE_LIMIT=20
    ```
 
 ## Usage
@@ -128,6 +143,12 @@ The web dashboard requires `module.service_control` in addition to `module.serve
 | `windowsServiceDiscoveryPatterns` | Name/display-name keywords used for auto-discovery | app/db/web service keywords |
 | `windowsServiceDiscoveryLimit` | Maximum auto-discovered services sent per heartbeat | `50` |
 | `windowsServices` | Windows service names to check | `[]` |
+| `iisLogs.enabled` | Enable lightweight IIS W3C summary monitoring | `false` |
+| `iisLogs.paths` | IIS log directories or files to scan | `["C:/inetpub/logs/LogFiles"]` |
+| `iisLogs.scanIntervalSeconds` | How often to scan for new IIS log lines | `60` |
+| `iisLogs.maxLinesPerRun` | Maximum new IIS lines parsed per scan | `5000` |
+| `iisLogs.sendRawSamples` | Include raw suspicious sample lines in summary payloads | `false` |
+| `iisLogs.sampleLimit` | Maximum suspicious samples sent per summary | `20` |
 
 ## Metrics Collected
 

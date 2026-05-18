@@ -33,15 +33,44 @@ function metricPayload(array $overrides = []): array
     ], $overrides);
 }
 
-test('metrics api rejects unregistered servers', function () {
+test('metrics api auto registers unknown servers from valid agents', function () {
     Queue::fake();
+
+    $this->postJson('/api/metrics', metricPayload([
+        'agent_hostname' => 'target-web-01',
+        'agent_os' => 'Windows Server 2022',
+        'agent_version' => '1.2.0',
+        'capabilities' => ['systemMetrics', 'windowsServices'],
+    ]), [
+        'X-API-Key' => 'test-agent-key',
+    ])->assertAccepted()
+        ->assertJsonPath('status', 'accepted');
+
+    Queue::assertPushed(ProcessServerMetric::class);
+    expect(ServerMetric::count())->toBe(0);
+
+    $server = Server::firstWhere('server_id', 'local-test');
+
+    expect($server)
+        ->not->toBeNull()
+        ->name->toBe('target-web-01')
+        ->os->toBe('Windows Server 2022')
+        ->agent_version->toBe('1.2.0')
+        ->group->toBe('Auto-discovered')
+        ->tags->toBe(['agent', 'auto-discovered'])
+        ->capabilities->toBe(['systemMetrics', 'windowsServices']);
+});
+
+test('metrics api can keep auto registration disabled', function () {
+    Queue::fake();
+    config(['agent.auto_register_servers' => false]);
 
     $this->postJson('/api/metrics', metricPayload(), [
         'X-API-Key' => 'test-agent-key',
     ])->assertForbidden();
 
     Queue::assertNothingPushed();
-    expect(ServerMetric::count())->toBe(0);
+    expect(Server::where('server_id', 'local-test')->exists())->toBeFalse();
 });
 
 test('metrics api accepts registered active servers and queues processing', function () {

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DatabaseMonitorController;
 use App\Http\Controllers\IncidentController;
+use App\Http\Controllers\IisLogController;
 use App\Http\Controllers\LogInspectionController;
 use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ProfileController;
@@ -134,6 +135,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/incidents', [IncidentController::class, 'index'])
         ->name('incidents.index');
 
+    Route::middleware(['can:module.log_ingestion'])->group(function () {
+        Route::get('/iis-logs', [IisLogController::class, 'index'])
+            ->name('iis-logs.index');
+        Route::get('/iis-logs/servers/{server}', [IisLogController::class, 'show'])
+            ->name('iis-logs.show');
+    });
+
     Route::post('/log-inspections', [LogInspectionController::class, 'store'])
         ->name('log-inspections.store');
 
@@ -241,13 +249,35 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])
                 ->name('admin.users.destroy');
         });
-});
+    
+    // Application mapping and dashboards
+    Route::middleware(['can:module.application_mapping'])->group(function () {
+        Route::get('/applications', [\App\Http\Controllers\ApplicationController::class, 'index'])->name('applications.index');
+        Route::get('/applications/create', [\App\Http\Controllers\ApplicationController::class, 'create'])->name('applications.create');
+        Route::post('/applications', [\App\Http\Controllers\ApplicationController::class, 'store'])->name('applications.store');
+        Route::get('/applications/{application}/edit', [\App\Http\Controllers\ApplicationController::class, 'edit'])->name('applications.edit');
+        Route::patch('/applications/{application}', [\App\Http\Controllers\ApplicationController::class, 'update'])->name('applications.update');
+        Route::get('/applications/{application}', [\App\Http\Controllers\ApplicationController::class, 'show'])->name('applications.show');
+    });
+
+    // Agent operations
+    Route::middleware(['can:module.server_metrics'])->group(function () {
+        Route::get('/agents', [\App\Http\Controllers\AgentController::class, 'index'])->name('agents.index');
+        Route::get('/agents/{server}/config', [\App\Http\Controllers\AgentController::class, 'downloadConfig'])->name('agents.config');
+        Route::get('/servers/{server}/agent-config', [\App\Http\Controllers\AgentController::class, 'downloadConfig'])->name('servers.agent-config');
+        Route::get('/servers/{server}/agent-package', [\App\Http\Controllers\AgentController::class, 'downloadPackage'])->name('servers.agent-package');
+        Route::post('/servers/{server}/agent-key/rotate', [\App\Http\Controllers\AgentController::class, 'rotateKey'])->name('servers.agent-key.rotate');
+    });
+
+    });
 
 // API Routes
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 
 Route::prefix('api')->group(function () {
     Route::post('/metrics', [\App\Http\Controllers\Api\MetricsController::class, 'store'])
+        ->withoutMiddleware([VerifyCsrfToken::class]);
+    Route::post('/iis-logs/summary', [\App\Http\Controllers\Api\IisLogSummaryController::class, 'store'])
         ->withoutMiddleware([VerifyCsrfToken::class]);
 });
 

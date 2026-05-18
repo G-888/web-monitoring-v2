@@ -55,6 +55,28 @@ class ServerAlertService
         $this->dispatch($subject, $message);
     }
 
+    public function sendIisLogAlert(Server $server, string $rule, int $value, int $threshold, array $context = []): void
+    {
+        $labels = [
+            'http_500_spike' => 'IIS HTTP 500 spike',
+            'http_404_spike' => 'IIS HTTP 404 spike',
+            'suspicious_event_spike' => 'IIS suspicious event spike',
+        ];
+
+        $subject = ($labels[$rule] ?? 'IIS log alert') . ": {$server->name}";
+        $message = $this->formatMessage($server, $subject, [
+            'Rule' => $rule,
+            'Current window count' => (string) $value,
+            'Threshold' => (string) $threshold,
+            'Window start' => $context['window_start'] ?? null,
+            'Window end' => $context['window_end'] ?? null,
+            'Total requests' => isset($context['total_requests']) ? (string) $context['total_requests'] : null,
+            'Time' => now()->format('Y-m-d H:i:s'),
+        ]);
+
+        $this->dispatch($subject, $message);
+    }
+
     private function dispatch(string $subject, string $message): void
     {
         try {

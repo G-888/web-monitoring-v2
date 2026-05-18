@@ -1,0 +1,33 @@
+{
+  "serverId": "REPLACE_WITH_SERVER_ID",
+  "apiUrl": "https://your-domain.com/api/metrics",
+  "apiKey": "REPLACE_WITH_API_KEY",
+  "intervalSeconds": 5,
+  "retryAttempts": 3,
+  "retryDelayMs": 1000,
+  "requestTimeoutMs": 10000,
+  "autoDiscoverWindowsServices": true,
+  "featureFlags": {
+    "systemMetrics": true,
+    "windowsServices": true,
+    "databaseCheck": false,
+    "backupMonitoring": false,
+    "scheduledJobs": false,
+    "iisLogs": false,
+    "coldfusionLogs": false,
+    "fileIntegrity": false
+  },
+  "iisLogs": {
+    "enabled": false,
+    "paths": [
+      "C:/inetpub/logs/LogFiles"
+    ],
+    "scanIntervalSeconds": 60,
+    "summaryOnly": true,
+    "maxLinesPerRun": 5000,
+    "sendRawSamples": false,
+    "sampleLimit": 20
+  },
+  "capabilities": [],
+  "config_schema_version": "1.0.0"
+}

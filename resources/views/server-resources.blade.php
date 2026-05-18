@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header_title">Server Resources</x-slot>
 
-    <div class="space-y-8" x-data="serverMonitor()">
+    <div class="space-y-8" x-data="serverMonitor(@js($initialServers ?? []))">
         <!-- Header Info -->
         <div class="glass rounded-3xl p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
@@ -133,11 +133,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        function serverMonitor() {
+        function serverMonitor(initialServers = []) {
             return {
-                servers: [],
+                servers: initialServers,
                 lastUpdate: null,
-                selectedServerId: null,
+                selectedServerId: initialServers.length > 0 ? initialServers[0].server_id : null,
                 historyHours: 6,
                 charts: {},
                 

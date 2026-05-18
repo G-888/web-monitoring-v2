@@ -75,6 +75,12 @@
                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         Incident History
                     </a>
+                    @can('module.log_ingestion')
+                        <a href="{{ route('iis-logs.index') }}" class="sidebar-link {{ request()->routeIs('iis-logs.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h10"></path></svg>
+                            IIS Logs
+                        </a>
+                    @endcan
                     <a href="{{ route('ssl-conversion.index') }}" class="sidebar-link {{ request()->routeIs('ssl-conversion.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         SSL Conversion
@@ -91,10 +97,20 @@
                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                         Asset Intelligence
                     </a>
+                    @can('module.application_mapping')
+                        <a href="{{ route('applications.index') }}" class="sidebar-link {{ request()->routeIs('applications.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                            Applications
+                        </a>
+                    @endcan
                     @can('module.server_metrics')
                         <a href="{{ route('servers.index') }}" class="sidebar-link {{ request()->routeIs('servers.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                             <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                             Server Inventory
+                        </a>
+                        <a href="{{ route('agents.index') }}" class="sidebar-link {{ request()->routeIs('agents.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8m-8 4h6m-9 8h14a2 2 0 002-2V7.414a2 2 0 00-.586-1.414L17 2.586A2 2 0 0015.586 2H5a2 2 0 00-2 2v15a2 2 0 002 2z"></path></svg>
+                            Agent Operations
                         </a>
                         <a href="{{ route('server-resources') }}" class="sidebar-link {{ request()->routeIs('server-resources') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                             <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>

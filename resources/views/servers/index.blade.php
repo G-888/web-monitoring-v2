@@ -120,6 +120,8 @@
                                             <span>IP: <span class="font-medium text-slate-900 dark:text-white">{{ $server->ip_address ?? 'Not set' }}</span></span>
                                             <span>OS: <span class="font-medium text-slate-900 dark:text-white">{{ $server->os ?? 'Not set' }}</span></span>
                                             <span>Agent: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_version ?? 'Not reported' }}</span></span>
+                                                <span>Host: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_hostname ?? '—' }}</span></span>
+                                                <span>Runtime: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_runtime ?? '—' }}</span></span>
                                             <span>Location: <span class="font-medium text-slate-900 dark:text-white">{{ $server->location ?? 'Not set' }}</span></span>
                                         </div>
                                         @if(! empty($server->tags))

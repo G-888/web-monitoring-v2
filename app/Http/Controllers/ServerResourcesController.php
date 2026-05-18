@@ -13,7 +13,9 @@ class ServerResourcesController extends Controller
 {
     public function index(): View
     {
-        return view('server-resources');
+        return view('server-resources', [
+            'initialServers' => app(ServerResourcesService::class)->getSnapshot(),
+        ]);
     }
 
     public function snapshot(ServerResourcesService $serverResources): JsonResponse

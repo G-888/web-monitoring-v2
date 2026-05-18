@@ -32,6 +32,7 @@ class ServerController extends Controller
         $validated = $request->validate([
             'server_id' => ['required', 'string', 'max:255', 'unique:servers,server_id'],
             'name' => ['required', 'string', 'max:255'],
+            'server_type' => ['nullable', 'string', 'max:255'],
             'ip_address' => ['nullable', 'ip'],
             'os' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
@@ -62,6 +63,7 @@ class ServerController extends Controller
 
     public function edit(Server $server)
     {
+        $server->load('applications');
         return view('servers.edit', compact('server'));
     }
 
@@ -70,6 +72,7 @@ class ServerController extends Controller
         $validated = $request->validate([
             'server_id' => ['required', 'string', 'max:255', Rule::unique('servers', 'server_id')->ignore($server->id)],
             'name' => ['required', 'string', 'max:255'],
+            'server_type' => ['nullable', 'string', 'max:255'],
             'ip_address' => ['nullable', 'ip'],
             'os' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],

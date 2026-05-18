@@ -20,7 +20,7 @@
                     <x-input-error :messages="$errors->get('server_id')" class="mt-1" />
                 </div>
 
-                <div class="grid gap-6 md:grid-cols-2">
+                <div class="grid gap-6 md:grid-cols-3">
                     <div class="space-y-2">
                         <x-input-label for="ip_address" :value="__('IP Address')" />
                         <x-text-input id="ip_address" name="ip_address" type="text" class="w-full" value="{{ old('ip_address') }}" placeholder="192.168.1.10" autocomplete="off" />
@@ -31,6 +31,12 @@
                         <x-input-label for="os" :value="__('Operating System')" />
                         <x-text-input id="os" name="os" type="text" class="w-full" value="{{ old('os') }}" placeholder="Linux / Windows" autocomplete="off" />
                         <x-input-error :messages="$errors->get('os')" class="mt-1" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="server_type" :value="__('Server Type')" />
+                        <x-text-input id="server_type" name="server_type" type="text" class="w-full" value="{{ old('server_type') }}" placeholder="application, database, web" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('server_type')" class="mt-1" />
                     </div>
                 </div>
 

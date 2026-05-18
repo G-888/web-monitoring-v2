@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessServerMetric;
 use App\Models\Server;
 use App\Models\WindowsServiceCommand;
+use App\Services\AgentDeploymentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -13,11 +14,10 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class MetricsController extends Controller
 {
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AgentDeploymentService $deployment): JsonResponse
     {
-        // Validate API key
         $apiKey = $request->header('X-API-Key');
-        if (!$apiKey || !$this->validateApiKey($apiKey)) {
+        if (!$apiKey) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -31,6 +31,14 @@ class MetricsController extends Controller
             'disk_total' => 'required|numeric|min:0.01',
             'timestamp' => 'required|date',
             'agent_version' => 'nullable|string|max:255',
+            'config_schema_version' => 'nullable|string|max:255',
+            'capabilities' => 'nullable|array',
+            'capabilities.*' => 'nullable|string|max:255',
+            'agent_hostname' => 'nullable|string|max:255',
+            'agent_os' => 'nullable|string|max:255',
+            'agent_runtime' => 'nullable|string|max:255',
+            'last_agent_error' => 'nullable|string',
+            'server_type' => 'nullable|string|max:255',
             'services' => 'nullable|array|max:100',
             'services.*.name' => 'required_with:services|string|max:255',
             'services.*.display_name' => 'nullable|string|max:255',
@@ -55,13 +63,23 @@ class MetricsController extends Controller
 
         $server = Server::where('server_id', $serverId)->first();
 
-        if (!$server || !$server->is_active) {
+        if (! $this->validateApiKey($apiKey, $server, $deployment)) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        if (!$server) {
+            if (! config('agent.auto_register_servers', true)) {
+                return response()->json(['error' => 'Server is not registered or active'], 403);
+            }
+
+            $server = $this->registerServerFromAgent($validated);
+        }
+
+        if (!$server->is_active) {
             return response()->json(['error' => 'Server is not registered or active'], 403);
         }
 
-        if (! empty($validated['agent_version'])) {
-            $server->forceFill(['agent_version' => $validated['agent_version']])->save();
-        }
+        $this->syncAgentMetadata($server, $validated);
 
         try {
             $commands = $this->claimCommands($server);
@@ -86,8 +104,12 @@ class MetricsController extends Controller
         }
     }
 
-    private function validateApiKey(string $apiKey): bool
+    private function validateApiKey(string $apiKey, ?Server $server, AgentDeploymentService $deployment): bool
     {
+        if ($server?->agent_api_key_hash && $deployment->keyMatches($server, $apiKey)) {
+            return true;
+        }
+
         $expectedKey = config('services.agent.key');
 
         if (empty($expectedKey)) {
@@ -95,6 +117,52 @@ class MetricsController extends Controller
         }
 
         return hash_equals($expectedKey, $apiKey);
+    }
+
+    private function registerServerFromAgent(array $validated): Server
+    {
+        $server = Server::firstOrCreate(
+            ['server_id' => $validated['server_id']],
+            [
+                'name' => $validated['agent_hostname'] ?? $validated['server_id'],
+                'os' => $validated['agent_os'] ?? null,
+                'server_type' => $validated['server_type'] ?? 'auto-discovered',
+                'group' => 'Auto-discovered',
+                'tags' => ['agent', 'auto-discovered'],
+                'is_active' => true,
+                'alerts_enabled' => true,
+            ]
+        );
+
+        Log::info('Auto-registered server from agent heartbeat', [
+            'server_id' => $server->server_id,
+        ]);
+
+        return $server;
+    }
+
+    private function syncAgentMetadata(Server $server, array $validated): void
+    {
+        $updates = [];
+
+        foreach ([
+            'agent_version',
+            'config_schema_version',
+            'capabilities',
+            'agent_hostname',
+            'agent_os',
+            'agent_runtime',
+            'last_agent_error',
+            'server_type',
+        ] as $field) {
+            if (array_key_exists($field, $validated)) {
+                $updates[$field] = $validated[$field];
+            }
+        }
+
+        if ($updates !== []) {
+            $server->forceFill($updates)->save();
+        }
     }
 
     private function claimCommands(Server $server): array
