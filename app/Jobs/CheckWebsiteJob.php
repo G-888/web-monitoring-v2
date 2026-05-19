@@ -37,6 +37,7 @@ class CheckWebsiteJob implements ShouldQueue
 
         $start = microtime(true);
         $html = '';
+        $response = null;
 
         try {
             $response = Http::timeout(5)
@@ -64,7 +65,7 @@ class CheckWebsiteJob implements ShouldQueue
             $searchDetected = [];
             $searchQueries = [];
 
-            $html = $html ?: ($response->body() ?? '');
+            $html = $html ?: ($response?->body() ?? '');
 
             if ($html !== '') {
                 $clean = strtolower(strip_tags($html));

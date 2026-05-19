@@ -4,6 +4,7 @@ use App\Jobs\CheckWebsiteJob;
 use App\Jobs\SslRenewalReminderJob;
 use App\Mail\MonitorDown;
 use App\Mail\SslCertificateExpiring;
+use App\Models\CheckResult;
 use App\Models\Monitor;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -60,6 +61,33 @@ test('website down alerts use owner fallback without hardcoded recipients', func
 
     Mail::assertQueued(MonitorDown::class, fn ($mail) => $mail->hasTo('owner@example.com'));
     Mail::assertNotQueued(MonitorDown::class, fn ($mail) => $mail->hasTo('suhailmajemi@gmail.com'));
+});
+
+test('website check records failure when request throws and seo is enabled', function () {
+    Mail::fake();
+    Http::fake([
+        '*' => fn () => throw new RuntimeException('Connection refused'),
+    ]);
+
+    $user = User::factory()->create(['email' => 'owner@example.com']);
+
+    $monitor = Monitor::create([
+        'user_id' => $user->id,
+        'name' => 'Failing SEO Monitor',
+        'url' => 'http://failing-seo.test',
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => true,
+        'alert_emails' => [],
+    ]);
+
+    (new CheckWebsiteJob($monitor, true))->handle();
+
+    $result = CheckResult::where('monitor_id', $monitor->id)->first();
+
+    expect($result)->not->toBeNull()
+        ->and($result->is_up)->toBeFalse()
+        ->and($result->status_code)->toBeNull();
 });
 
 test('ssl reminders use owner fallback without hardcoded recipients', function () {

@@ -3,8 +3,11 @@
 use App\Models\Application;
 use App\Models\ApplicationComponentRule;
 use App\Models\ApplicationUrl;
+use App\Models\CheckResult;
+use App\Models\Monitor;
 use App\Models\Server;
 use App\Models\ServerMetric;
+use App\Models\User;
 
 function healthyMappedServer(string $serverId, array $overrides = []): Server
 {
@@ -125,4 +128,85 @@ test('application health is critical when url is down or minimums are not met', 
     expect($summary['status'])->toBe('critical')
         ->and($summary['reasons'])->toContain('website_down')
         ->and($summary['reasons'])->toContain('app_servers_below_minimum');
+});
+
+test('application urls normalize and auto link existing monitors', function () {
+    $this->withoutMiddleware();
+
+    $user = User::factory()->create();
+    $monitor = Monitor::create([
+        'user_id' => $user->id,
+        'name' => 'Portal Monitor',
+        'url' => 'https://example.test/app?env=prod',
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => false,
+    ]);
+    CheckResult::create([
+        'monitor_id' => $monitor->id,
+        'status_code' => 200,
+        'response_time' => 0.12,
+        'is_up' => true,
+        'checked_at' => now(),
+    ]);
+
+    $this->post(route('applications.store'), [
+        'name' => 'Portal',
+        'code' => 'portal',
+        'environment' => 'production',
+        'urls' => "HTTPS://EXAMPLE.TEST/app/?env=prod\nhttps://unknown.example.test",
+        'app_servers_min_required' => 0,
+        'database_servers_min_required' => 0,
+    ])->assertRedirect();
+
+    $application = Application::with(['urls.monitor.latestResult', 'servers.latestMetric', 'componentRules'])
+        ->firstWhere('code', 'portal');
+
+    $linkedUrl = $application->urls->firstWhere('url', 'https://example.test/app?env=prod');
+    $unknownUrl = $application->urls->firstWhere('url', 'https://unknown.example.test');
+
+    expect($application->urls)->toHaveCount(2)
+        ->and($linkedUrl)->not->toBeNull()
+        ->and($linkedUrl->monitor_id)->toBe($monitor->id)
+        ->and($unknownUrl)->not->toBeNull()
+        ->and($unknownUrl->monitor_id)->toBeNull()
+        ->and($application->urlStatusSummary())->toBe('unknown');
+});
+
+test('application health uses linked monitor latest result for url status', function () {
+    $this->withoutMiddleware();
+
+    $user = User::factory()->create();
+    $monitor = Monitor::create([
+        'user_id' => $user->id,
+        'name' => 'Down Portal Monitor',
+        'url' => 'https://down.example.test',
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => false,
+    ]);
+    CheckResult::create([
+        'monitor_id' => $monitor->id,
+        'status_code' => 500,
+        'response_time' => 0.4,
+        'is_up' => false,
+        'checked_at' => now(),
+    ]);
+
+    $this->post(route('applications.store'), [
+        'name' => 'Down Portal',
+        'code' => 'down-portal',
+        'environment' => 'production',
+        'urls' => 'https://down.example.test',
+        'app_servers_min_required' => 0,
+        'database_servers_min_required' => 0,
+    ])->assertRedirect();
+
+    $summary = Application::with(['urls.monitor.latestResult', 'servers.latestMetric', 'componentRules'])
+        ->firstWhere('code', 'down-portal')
+        ->healthSummary();
+
+    expect($summary['status'])->toBe('critical')
+        ->and($summary['url_status'])->toBe('down')
+        ->and($summary['reasons'])->toContain('website_down');
 });

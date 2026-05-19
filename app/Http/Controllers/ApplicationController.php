@@ -6,10 +6,12 @@ use App\Models\Application;
 use App\Models\Server;
 use App\Models\ApplicationUrl;
 use App\Models\ApplicationComponentRule;
+use App\Models\Monitor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 
 class ApplicationController extends Controller
 {
@@ -133,11 +135,50 @@ class ApplicationController extends Controller
         }
 
         return collect(preg_split('/\R/', (string) $urls))
-            ->map(fn (string $url) => trim($url))
-            ->filter(fn (string $url) => filter_var($url, FILTER_VALIDATE_URL))
+            ->map(fn (string $url) => $this->normalizeUrl($url))
+            ->filter()
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function normalizeUrl(string $url): ?string
+    {
+        $url = trim($url);
+
+        if ($url === '') {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $url)) {
+            $url = 'https://'.$url;
+        }
+
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $parts = parse_url($url);
+
+        if (($parts['scheme'] ?? null) === null || ($parts['host'] ?? null) === null) {
+            return null;
+        }
+
+        $normalized = Str::lower($parts['scheme']).'://'.Str::lower($parts['host']);
+
+        if (isset($parts['port'])) {
+            $normalized .= ':'.$parts['port'];
+        }
+
+        $path = $parts['path'] ?? '';
+        $path = $path === '/' ? '' : rtrim($path, '/');
+        $normalized .= $path;
+
+        if (isset($parts['query'])) {
+            $normalized .= '?'.$parts['query'];
+        }
+
+        return $normalized;
     }
 
     private function syncUrls(Application $application, array $urls): void
@@ -145,8 +186,13 @@ class ApplicationController extends Controller
         $application->urls()->delete();
 
         foreach ($urls as $url) {
+            $monitor = Monitor::query()
+                ->where('url', $url)
+                ->first();
+
             ApplicationUrl::create([
                 'application_id' => $application->id,
+                'monitor_id' => $monitor?->id,
                 'url' => $url,
                 'status' => 'unknown',
             ]);

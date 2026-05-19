@@ -155,8 +155,9 @@ class AgentDeploymentService
         $zip->addFile($agentPath, 'server-monitor-agent.exe');
         $zip->addFromString('config.json', json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
+        $zip->addFromString('install-service.ps1', $this->packageInstallScript());
+
         foreach ([
-            'install-service.ps1',
             'uninstall-service.ps1',
             'restart-agent.ps1',
             'update-agent.ps1',
@@ -174,6 +175,66 @@ class AgentDeploymentService
         $zip->close();
 
         return $zipPath;
+    }
+
+    private function packageInstallScript(): string
+    {
+        return <<<'POWERSHELL'
+Param(
+    [string]$InstallPath = "C:\Program Files\ServerMonitorAgent",
+    [string]$ExeName = "server-monitor-agent.exe"
+)
+
+function Require-Admin {
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-Error "This script must be run as Administrator."; exit 1
+    }
+}
+
+Require-Admin
+
+$PackagePath = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
+$srcExe = Join-Path -Path $PackagePath -ChildPath ".\server-monitor-agent.exe"
+$srcConfig = Join-Path -Path $PackagePath -ChildPath ".\config.json"
+
+if (-not (Test-Path $srcExe)) {
+    Write-Error "Packaged executable not found at $srcExe."; exit 1
+}
+
+if (-not (Test-Path $srcConfig)) {
+    Write-Error "Generated config.json not found at $srcConfig."; exit 1
+}
+
+Write-Output "Installing ServerMonitorAgent to $InstallPath"
+
+if (-not (Test-Path $InstallPath)) {
+    New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+}
+
+$dstExe = Join-Path $InstallPath $ExeName
+$dstConfig = Join-Path $InstallPath "config.json"
+
+Copy-Item -Path $srcExe -Destination $dstExe -Force
+Copy-Item -Path $srcConfig -Destination $dstConfig -Force
+
+$logs = Join-Path $InstallPath "logs"
+if (-not (Test-Path $logs)) {
+    New-Item -ItemType Directory -Path $logs -Force | Out-Null
+}
+
+$svcName = "ServerMonitorAgent"
+$exists = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+if ($exists) {
+    Write-Output "Service $svcName already exists. Stopping and updating binary/config."
+    Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue
+} else {
+    Write-Output "Creating service $svcName"
+    sc.exe create $svcName binPath= "`"$dstExe`"" start= auto DisplayName= "Server Monitor Agent" | Out-Null
+}
+
+Start-Service -Name $svcName -ErrorAction SilentlyContinue
+Write-Output "Service $svcName installed and started."
+POWERSHELL;
     }
 
     public function packageFilename(Server $server): string

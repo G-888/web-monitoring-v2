@@ -10,13 +10,13 @@
 
                 <div class="space-y-2">
                     <x-input-label for="name" :value="__('Name')" />
-                    <x-text-input id="name" name="name" type="text" class="w-full" value="{{ old('name') }}" required autofocus autocomplete="name" />
+                    <x-text-input id="name" name="name" type="text" class="w-full" value="{{ old('name', $prefillName ?? '') }}" required autofocus autocomplete="name" />
                     <x-input-error :messages="$errors->get('name')" class="mt-1" />
                 </div>
 
                 <div class="space-y-2">
                     <x-input-label for="url" :value="__('URL')" />
-                    <x-text-input id="url" name="url" type="url" class="w-full" value="{{ old('url') }}" placeholder="https://example.com" required autocomplete="url" />
+                    <x-text-input id="url" name="url" type="url" class="w-full" value="{{ old('url', $prefillUrl ?? '') }}" placeholder="https://example.com" required autocomplete="url" />
                     <x-input-error :messages="$errors->get('url')" class="mt-1" />
                 </div>
 

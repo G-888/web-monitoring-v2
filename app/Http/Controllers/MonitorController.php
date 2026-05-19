@@ -61,7 +61,10 @@ class MonitorController extends Controller
 
     public function create()
     {
-        return view('monitors.create');
+        return view('monitors.create', [
+            'prefillUrl' => request()->query('url'),
+            'prefillName' => request()->query('name'),
+        ]);
     }
 
     public function store(Request $request)

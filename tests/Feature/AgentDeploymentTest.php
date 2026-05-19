@@ -65,6 +65,13 @@ test('agent package includes required deployment files', function () {
     $config = json_decode($zip->getFromName('config.json'), true);
     expect($config['serverId'])->toBe('deploy-target-01');
 
+    $installScript = $zip->getFromName('install-service.ps1');
+    expect($installScript)->toBeString()
+        ->and($installScript)->toContain('.\server-monitor-agent.exe')
+        ->and($installScript)->toContain('.\config.json')
+        ->and($installScript)->not->toContain('..\dist')
+        ->and($installScript)->not->toContain('config.json.template');
+
     $zip->close();
 
     expect(AgentDeploymentAudit::where('server_id', $server->id)->where('action', 'package_downloaded')->exists())->toBeTrue();

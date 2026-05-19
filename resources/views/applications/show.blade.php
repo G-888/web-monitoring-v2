@@ -116,8 +116,26 @@
                                 : ($url->status ?: 'unknown');
                         @endphp
                         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/60">
-                            <div class="break-all text-sm font-semibold text-slate-900 dark:text-white">{{ $url->url ?? 'Monitor #'.$url->monitor_id }}</div>
-                            <div class="mt-2 text-xs font-bold uppercase tracking-wider {{ $urlStatus === 'down' ? 'text-red-600 dark:text-red-300' : ($urlStatus === 'up' ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300') }}">{{ ucfirst($urlStatus) }}</div>
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <div class="break-all text-sm font-semibold text-slate-900 dark:text-white">{{ $url->url ?? 'Monitor #'.$url->monitor_id }}</div>
+                                    <div class="mt-2 text-xs font-bold uppercase tracking-wider {{ $urlStatus === 'down' ? 'text-red-600 dark:text-red-300' : ($urlStatus === 'up' ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300') }}">{{ ucfirst($urlStatus) }}</div>
+                                    @if($url->monitor)
+                                        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Linked monitor: {{ $url->monitor->name }}</div>
+                                    @else
+                                        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">No monitor linked.</div>
+                                    @endif
+                                </div>
+                                @if($url->monitor)
+                                    <a href="{{ route('monitors.edit', $url->monitor) }}" class="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                                        Link Monitor
+                                    </a>
+                                @elseif($url->url)
+                                    <a href="{{ route('monitors.create', ['url' => $url->url, 'name' => $application->name]) }}" class="inline-flex shrink-0 items-center justify-center rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500">
+                                        Create Monitor
+                                    </a>
+                                @endif
+                            </div>
                         </div>
                     @empty
                         <p class="text-sm text-slate-500 dark:text-slate-400">No URLs mapped.</p>
