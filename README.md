@@ -22,8 +22,8 @@ Running with Docker is the easiest way to get started.
 ### 1. Get The Files
 
 ```bash
-git clone https://github.com/suhailgoapps-stack/web-monitoring.git
-cd web-monitoring
+git clone https://github.com/G-888/web-monitoring-v2.git
+cd web-monitoring-v2
 ```
 
 ### 2. Configure Environment
