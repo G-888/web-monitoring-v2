@@ -74,6 +74,23 @@ test('seo security page renders separate seo and webshell tabs', function () {
         ->assertDontSee('Forensic URL Check');
 });
 
+test('seo security page renders manual scan results without captured debug payload', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->withSession([
+            'manual_url' => 'https://example.test',
+            'manual_scan_result' => [
+                'status' => 'clean',
+                'findings' => [],
+            ],
+        ])
+        ->get(route('seo-security.index', ['tab' => 'seo']))
+        ->assertOk()
+        ->assertSee('Forensic Analysis Report')
+        ->assertSee('No response source captured for this scan.');
+});
+
 test('webshell scan redirects back to the webshell tab', function () {
     $this->withoutMiddleware();
 

@@ -76,6 +76,8 @@ class SeoSecurityController extends Controller
 
         $result = $service->scan($url);
         $result['status_code'] = $response->status();
+        $result['raw_headers'] = $response->headers();
+        $result['raw_body'] = substr($response->body() ?? '', 0, 20000);
 
         // We still save it as a "Manual Scan" result for history
         $scan = new SeoScan();

@@ -184,19 +184,26 @@
             </div>
 
         @if(session('manual_scan_result'))
-            <div class="bg-slate-900 rounded-[2rem] p-8 border-2 {{ session('manual_scan_result')['status'] === 'clean' ? 'border-emerald-500/30' : 'border-red-500/30' }} shadow-2xl animate-in fade-in zoom-in-95 duration-500">
+            @php
+                $manualScanResult = session('manual_scan_result');
+                $manualStatus = $manualScanResult['status'] ?? 'unknown';
+                $manualFindings = $manualScanResult['findings'] ?? [];
+                $manualHeaders = $manualScanResult['raw_headers'] ?? [];
+                $manualBody = $manualScanResult['raw_body'] ?? 'No response source captured for this scan.';
+            @endphp
+            <div class="bg-slate-900 rounded-[2rem] p-8 border-2 {{ $manualStatus === 'clean' ? 'border-emerald-500/30' : 'border-red-500/30' }} shadow-2xl animate-in fade-in zoom-in-95 duration-500">
                 <div class="flex items-center justify-between mb-8">
                     <div class="space-y-1">
                         <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Forensic Analysis Report</div>
                         <h3 class="text-xl font-bold text-white">{{ session('manual_url') }}</h3>
                     </div>
-                    <div class="px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest {{ session('manual_scan_result')['status'] === 'clean' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white' }}">
-                        {{ session('manual_scan_result')['status'] }}
+                    <div class="px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest {{ $manualStatus === 'clean' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white' }}">
+                        {{ $manualStatus }}
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                    @forelse(session('manual_scan_result')['findings'] as $finding)
+                    @forelse($manualFindings as $finding)
                         <div class="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-bold">
                             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
                             {{ $finding }}
@@ -214,8 +221,8 @@
                         <span x-text="open ? '[-] Hide Debug' : '[+] View Headers & Source'"></span>
                     </button>
                     <div x-show="open" class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4" x-cloak>
-                        <pre class="p-4 bg-black/40 rounded-xl text-[10px] font-mono text-emerald-500 overflow-x-auto border border-white/5">{{ json_encode(session('manual_scan_result')['raw_headers'], JSON_PRETTY_PRINT) }}</pre>
-                        <pre class="p-4 bg-black/40 rounded-xl text-[10px] font-mono text-blue-400 overflow-x-auto border border-white/5">{{ session('manual_scan_result')['raw_body'] }}</pre>
+                        <pre class="p-4 bg-black/40 rounded-xl text-[10px] font-mono text-emerald-500 overflow-x-auto border border-white/5">{{ json_encode($manualHeaders, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}' }}</pre>
+                        <pre class="p-4 bg-black/40 rounded-xl text-[10px] font-mono text-blue-400 overflow-x-auto border border-white/5">{{ $manualBody }}</pre>
                     </div>
                 </div>
             </div>
