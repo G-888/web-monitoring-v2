@@ -133,6 +133,8 @@ Then open `http://127.0.0.1:8000`.
 - `/seo-security` - SEO poisoning, file integrity, and webshell detection.
 - `/ssl-conversion` - Multi-format SSL certificate converter.
 
+Google/search-result SEO poisoning detection requires `SEO_SEARCH_ENABLED=true` plus a configured search provider such as `GOOGLE_SEARCH_KEY` and `GOOGLE_SEARCH_CX`. Without this, the live page scanner can report the page response as clean while Google still has poisoned indexed titles or snippets.
+
 ## Server Agent Notes
 
 Server metrics are accepted only for active inventory rows whose `server_id` matches the agent config. New generated configs use per-server API keys and store only a SHA-256 hash in the database. `AGENT_API_KEY` is a legacy fallback only; disable it with `AGENT_GLOBAL_API_KEY_ENABLED=false` after existing agents are rotated.

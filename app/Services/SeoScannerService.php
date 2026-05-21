@@ -2,11 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\Monitor;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SeoScannerService
 {
+    public function __construct(private SearchEngineSeoScanner $searchEngineSeoScanner)
+    {
+    }
+
     protected array $userAgents = [
         'desktop' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'googlebot' => 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
@@ -68,12 +73,50 @@ class SeoScannerService
             }
         }
 
+        $searchResult = $this->scanSearchIndex($url);
+        foreach ($searchResult['findings'] ?? [] as $finding) {
+            $flags = implode(', ', $finding['flags'] ?? []);
+            $title = $finding['title'] ?? 'Indexed result';
+            $resultUrl = $finding['url'] ?? '';
+
+            $findings[] = trim("SEARCH_INDEX_POISONING: {$title} {$resultUrl} [{$flags}]");
+        }
+
         return [
             'status' => ($cloakingDetected || !empty($findings)) ? 'suspicious' : 'clean',
             'cloaking' => $cloakingDetected,
-            'findings' => $findings,
-            'hashes' => $hashes
+            'findings' => array_values(array_unique($findings)),
+            'hashes' => $hashes,
+            'search_enabled' => $searchResult['enabled'] ?? false,
+            'search_findings' => $searchResult['findings'] ?? [],
+            'search_queries' => $searchResult['queries'] ?? [],
+            'search_detected_patterns' => $searchResult['detected_patterns'] ?? [],
         ];
+    }
+
+    private function scanSearchIndex(string $url): array
+    {
+        try {
+            return $this->searchEngineSeoScanner->scan(new Monitor([
+                'name' => $url,
+                'url' => $url,
+                'interval' => 60,
+                'is_active' => true,
+                'seo_enabled' => true,
+            ]));
+        } catch (\Throwable $e) {
+            Log::warning('Search-index SEO scan failed', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'enabled' => config('services.seo_search.enabled', false),
+                'findings' => [],
+                'detected_patterns' => ['search_index_scan_failed'],
+                'queries' => [],
+            ];
+        }
     }
 
     /**

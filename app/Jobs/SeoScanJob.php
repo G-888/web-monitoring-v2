@@ -48,7 +48,13 @@ class SeoScanJob implements ShouldQueue
         $scan->url = $this->monitor->url;
         $scan->status = $result['status'];
         $scan->findings = $result['findings'];
-        $scan->diffs = $result['hashes'];
+        $scan->diffs = [
+            'hashes' => $result['hashes'] ?? [],
+            'search_enabled' => $result['search_enabled'] ?? false,
+            'search_findings' => $result['search_findings'] ?? [],
+            'search_queries' => $result['search_queries'] ?? [],
+            'search_detected_patterns' => $result['search_detected_patterns'] ?? [],
+        ];
         $scan->scanned_at = now();
         $scan->save();
 

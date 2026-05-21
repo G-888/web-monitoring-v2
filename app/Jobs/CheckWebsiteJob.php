@@ -32,8 +32,10 @@ class CheckWebsiteJob implements ShouldQueue
         $this->onQueue('checks');
     }
 
-    public function handle()
+    public function handle(?SearchEngineSeoScanner $searchEngineSeoScanner = null)
     {
+        $searchEngineSeoScanner ??= app(SearchEngineSeoScanner::class);
+
         $this->monitor->refresh();
 
         if (! $this->force && ! $this->monitor->is_active) {
@@ -95,6 +97,19 @@ class CheckWebsiteJob implements ShouldQueue
                         $detected[] = 'content_changed';
                     }
                 }
+            }
+
+            try {
+                $searchResult = $searchEngineSeoScanner->scan($this->monitor);
+                $searchFindings = $searchResult['findings'] ?? [];
+                $searchDetected = $searchResult['detected_patterns'] ?? [];
+                $searchQueries = $searchResult['queries'] ?? [];
+            } catch (\Throwable $e) {
+                Log::warning('Search-index SEO scan failed during website check', [
+                    'monitor_id' => $this->monitor->id,
+                    'url' => $this->monitor->url,
+                    'error' => $e->getMessage(),
+                ]);
             }
 
             $detected = array_values(array_unique(array_merge($detected, $searchDetected)));

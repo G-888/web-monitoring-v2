@@ -190,6 +190,7 @@
                 $manualFindings = $manualScanResult['findings'] ?? [];
                 $manualHeaders = $manualScanResult['raw_headers'] ?? [];
                 $manualBody = $manualScanResult['raw_body'] ?? 'No response source captured for this scan.';
+                $manualSearchEnabled = (bool) ($manualScanResult['search_enabled'] ?? false);
             @endphp
             <div class="bg-slate-900 rounded-[2rem] p-8 border-2 {{ $manualStatus === 'clean' ? 'border-emerald-500/30' : 'border-red-500/30' }} shadow-2xl animate-in fade-in zoom-in-95 duration-500">
                 <div class="flex items-center justify-between mb-8">
@@ -211,7 +212,7 @@
                     @empty
                         <div class="col-span-2 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-bold flex items-center gap-3">
                             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                            No malicious patterns found in live response.
+                            {{ $manualSearchEnabled ? 'No malicious patterns found in live response or configured search-index providers.' : 'Live response is clean. Search-index intelligence is not enabled, so Google/Bing poisoning evidence was not checked.' }}
                         </div>
                     @endforelse
                 </div>

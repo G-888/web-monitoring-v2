@@ -24,6 +24,16 @@ class SearchEngineSeoScanner
         'payday',
         'gambling',
         'adult',
+        'slot',
+        'togel',
+        'judi',
+        'apk',
+        'download apk',
+        'unduh apk',
+        'aplikasi android',
+        'kenzobet',
+        'sql injection',
+        'hacked by',
     ];
 
     public function scan(Monitor $monitor): array
@@ -33,6 +43,7 @@ class SearchEngineSeoScanner
                 'enabled' => false,
                 'findings' => [],
                 'detected_patterns' => [],
+                'queries' => [],
             ];
         }
 
@@ -43,6 +54,7 @@ class SearchEngineSeoScanner
                 'enabled' => true,
                 'findings' => [],
                 'detected_patterns' => ['invalid_monitor_domain'],
+                'queries' => [],
             ];
         }
 
@@ -75,6 +87,11 @@ class SearchEngineSeoScanner
             'findings' => $findings,
             'detected_patterns' => collect($findings)
                 ->flatMap(fn ($finding) => $finding['flags'])
+                ->unique()
+                ->values()
+                ->all(),
+            'queries' => collect(config('services.seo_search.providers', []))
+                ->flatMap(fn ($provider) => $this->providerQueries($provider, $domain, $queries))
                 ->unique()
                 ->values()
                 ->all(),
@@ -436,6 +453,18 @@ class SearchEngineSeoScanner
         foreach ($this->spamPatterns as $pattern) {
             if (str_contains($text, $pattern)) {
                 $flags[] = "search_spam:{$pattern}";
+            }
+        }
+
+        if (str_ends_with($expectedDomain, '.gov.my')) {
+            $governmentAppTerms = ['apk', 'download apk', 'unduh apk', 'aplikasi android', 'android'];
+            $gamblingTerms = ['casino', 'betting', 'slot', 'togel', 'judi', 'kenzobet'];
+
+            $hasAppDownloadTerm = collect($governmentAppTerms)->contains(fn ($term) => str_contains($text, $term));
+            $hasGamblingTerm = collect($gamblingTerms)->contains(fn ($term) => str_contains($text, $term));
+
+            if ($hasAppDownloadTerm && $hasGamblingTerm) {
+                $flags[] = 'government_search_result_app_download_spam';
             }
         }
 

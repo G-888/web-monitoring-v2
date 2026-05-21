@@ -98,3 +98,38 @@ test('scanner supports free public index providers', function () {
         ->and($result['detected_patterns'])->toContain('search_spam:viagra')
         ->and($result['detected_patterns'])->toContain('search_spam:betting');
 });
+
+test('search engine seo scanner flags government apk gambling poisoning', function () {
+    config()->set('services.seo_search.enabled', true);
+    config()->set('services.seo_search.providers', ['google']);
+    config()->set('services.seo_search.google_key', 'test-key');
+    config()->set('services.seo_search.google_cx', 'test-cx');
+    config()->set('services.seo_search.result_limit', 10);
+
+    Http::fake([
+        'www.googleapis.com/customsearch/v1*' => Http::response([
+            'items' => [
+                [
+                    'title' => 'KENZOBET Unduh APK - Aplikasi Android Pendidikan',
+                    'link' => 'https://sspakpm1.treasury.gov.my',
+                    'snippet' => 'Vinicius Junior adalah pemain sepak bola profesional Brasil.',
+                ],
+            ],
+        ]),
+    ]);
+
+    $monitor = new Monitor([
+        'name' => 'Treasury',
+        'url' => 'https://sspakpm1.treasury.gov.my',
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => true,
+    ]);
+
+    $result = app(SearchEngineSeoScanner::class)->scan($monitor);
+
+    expect($result['findings'])->toHaveCount(2)
+        ->and($result['detected_patterns'])->toContain('search_spam:kenzobet')
+        ->and($result['detected_patterns'])->toContain('search_spam:apk')
+        ->and($result['detected_patterns'])->toContain('government_search_result_app_download_spam');
+});
