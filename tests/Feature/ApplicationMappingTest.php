@@ -8,6 +8,8 @@ use App\Models\Monitor;
 use App\Models\Server;
 use App\Models\ServerMetric;
 use App\Models\User;
+use Illuminate\Support\Facades\Bus;
+use Spatie\Permission\Models\Permission;
 
 function healthyMappedServer(string $serverId, array $overrides = []): Server
 {
@@ -209,4 +211,90 @@ test('application health uses linked monitor latest result for url status', func
     expect($summary['status'])->toBe('critical')
         ->and($summary['url_status'])->toBe('down')
         ->and($summary['reasons'])->toContain('website_down');
+});
+
+test('creating monitor from application url links it immediately', function () {
+    Bus::fake();
+    Permission::firstOrCreate(['name' => 'module.application_mapping']);
+
+    $user = User::factory()->create();
+    $user->givePermissionTo('module.application_mapping');
+    $application = mappedApplication(['app' => 0, 'database' => 0]);
+    $applicationUrl = ApplicationUrl::create([
+        'application_id' => $application->id,
+        'url' => 'https://linked.example.test',
+        'status' => 'unknown',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('monitors.store'), [
+            'name' => 'Linked Monitor',
+            'url' => 'https://linked.example.test',
+            'interval' => 60,
+            'is_active' => '1',
+            'seo_enabled' => '0',
+            'application_url_id' => $applicationUrl->id,
+        ])
+        ->assertRedirect(route('applications.show', $application));
+
+    $monitor = Monitor::firstWhere('name', 'Linked Monitor');
+
+    expect($monitor)->not->toBeNull()
+        ->and($applicationUrl->refresh()->monitor_id)->toBe($monitor->id)
+        ->and($applicationUrl->url)->toBe('https://linked.example.test');
+});
+
+test('creating monitor only links application url for mapping users', function () {
+    Bus::fake();
+
+    $user = User::factory()->create();
+    $application = mappedApplication(['app' => 0, 'database' => 0]);
+    $applicationUrl = ApplicationUrl::create([
+        'application_id' => $application->id,
+        'url' => 'https://protected-link.example.test',
+        'status' => 'unknown',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('monitors.store'), [
+            'name' => 'Regular User Monitor',
+            'url' => 'https://protected-link.example.test',
+            'interval' => 60,
+            'is_active' => '1',
+            'seo_enabled' => '0',
+            'application_url_id' => $applicationUrl->id,
+        ])
+        ->assertRedirect(route('dashboard'));
+
+    expect($applicationUrl->refresh()->monitor_id)->toBeNull();
+});
+
+test('application url can link to an existing monitor manually', function () {
+    Permission::firstOrCreate(['name' => 'module.application_mapping']);
+
+    $user = User::factory()->create();
+    $user->givePermissionTo('module.application_mapping');
+
+    $application = mappedApplication(['app' => 0, 'database' => 0]);
+    $applicationUrl = ApplicationUrl::create([
+        'application_id' => $application->id,
+        'url' => 'https://manual.example.test',
+        'status' => 'unknown',
+    ]);
+    $monitor = Monitor::create([
+        'user_id' => $user->id,
+        'name' => 'Manual Monitor',
+        'url' => 'https://manual.example.test',
+        'interval' => 60,
+        'is_active' => true,
+        'seo_enabled' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('application-urls.link-monitor', $applicationUrl), [
+            'monitor_id' => $monitor->id,
+        ])
+        ->assertRedirect(route('applications.show', $application));
+
+    expect($applicationUrl->refresh()->monitor_id)->toBe($monitor->id);
 });

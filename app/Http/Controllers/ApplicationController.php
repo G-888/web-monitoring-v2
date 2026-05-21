@@ -79,8 +79,11 @@ class ApplicationController extends Controller
         $application->load(['servers.latestMetric','urls.monitor.latestResult','componentRules']);
 
         $summary = $application->healthSummary();
+        $monitors = Monitor::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'url']);
 
-        return view('applications.show', compact('application', 'summary'));
+        return view('applications.show', compact('application', 'summary', 'monitors'));
     }
 
     private function validatedApplication(Request $request, ?Application $application = null): array

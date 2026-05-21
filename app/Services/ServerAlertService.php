@@ -59,13 +59,20 @@ class ServerAlertService
     {
         $labels = [
             'http_500_spike' => 'IIS HTTP 500 spike',
+            'http_500_spike_warning' => 'IIS HTTP 500 warning',
+            'http_500_spike_critical' => 'IIS HTTP 500 critical',
             'http_404_spike' => 'IIS HTTP 404 spike',
+            'http_404_spike_warning' => 'IIS HTTP 404 warning',
+            'http_404_spike_critical' => 'IIS HTTP 404 critical',
             'suspicious_event_spike' => 'IIS suspicious event spike',
+            'suspicious_event_spike_warning' => 'IIS suspicious event warning',
+            'suspicious_event_spike_critical' => 'IIS suspicious event critical',
         ];
 
         $subject = ($labels[$rule] ?? 'IIS log alert') . ": {$server->name}";
         $message = $this->formatMessage($server, $subject, [
             'Rule' => $rule,
+            'Severity' => $context['severity'] ?? null,
             'Current window count' => (string) $value,
             'Threshold' => (string) $threshold,
             'Window start' => $context['window_start'] ?? null,

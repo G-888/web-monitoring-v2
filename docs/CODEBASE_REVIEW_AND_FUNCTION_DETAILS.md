@@ -1,36 +1,44 @@
 # WebMonitor Codebase Review and Function Details
 
-Generated: 2026-05-19  
-Scope: Laravel monitoring platform, Blade/Tailwind UI, queue jobs, migrations, tests, Docker runtime, and Windows Node.js agent.  
-Review mode: documentation-only; no runtime behavior was changed.
+Generated: 2026-05-20
+Scope: Laravel monitoring platform, Blade/Tailwind UI, queue jobs, migrations, tests, Docker runtime, and Windows Node.js agent.
+Review mode: full code and system review with documentation update.
 
 ## 1. Executive Summary
 
-WebMonitor is a Laravel 11 monitoring platform with a Windows/Node.js agent. The working production path is:
+WebMonitor is a Laravel 11 monitoring and security-observability platform with a Windows Node.js agent. The platform currently supports website monitoring, SSL checks, server inventory, server metrics, Windows service monitoring and control, database monitoring, network dependency monitoring, application mapping, IIS log summary monitoring, agent deployment packages, security scans, alerting, role-based access control, and maintenance reporting.
+
+The core production ingestion path remains backward compatible:
 
 ```text
-Windows/Linux Agent
+Windows Node.js Agent
   -> POST /api/metrics
-  -> MetricsController validation/auth/rate limit
+  -> MetricsController validation and agent authentication
   -> ProcessServerMetric queue job
-  -> MySQL/MariaDB metadata + metric tables
-  -> Reverb broadcast + dashboard polling
-  -> Email/Telegram/Slack/Discord alert channels
+  -> MySQL/MariaDB application metadata and metric tables
+  -> dashboard views, charts, alert checks, and server health summaries
 ```
 
-The project now includes several major capability groups:
+Newer subsystems were added beside the existing metric path rather than replacing it:
 
-- Website uptime monitoring and SSL expiry monitoring.
-- Server inventory, heartbeat, CPU/RAM/disk metrics, metric history, and resource dashboard.
-- Windows service discovery, monitoring, alerting, and queued service control commands.
-- Database monitor checks for MySQL/MariaDB and PostgreSQL.
-- Log inspection uploads with heuristic severity counts and optional AI analysis.
-- SEO poisoning detection, file integrity tracking, and webshell scanning.
-- Application mapping with per-application roles and health calculation.
-- Agent Operations dashboard with per-server deployment config/package generation.
-- Role/permission gating through Spatie permissions.
+```text
+IIS log collector
+  -> POST /api/iis-logs/summary
+  -> IisLogSummaryController
+  -> iis_log_summaries, iis_suspicious_events, iis_log_collector_statuses
+  -> /iis-logs dashboard, server detail IIS panel, and IIS alert thresholds
+```
 
-The system is broadly additive and queue-oriented, which is good for production safety. The biggest immediate risks are around agent deployment package script mismatch, URL health mapping gaps in application mapping, a possible website check exception path, and some stale/dead helper code from earlier iterations.
+```text
+Maintenance reports
+  -> /reports/maintenance
+  -> MaintenanceReportController
+  -> MaintenanceReportService aggregation
+  -> maintenance_reports
+  -> HTML preview, PDF export, Excel-compatible export, and report history
+```
+
+The current implementation is mostly additive and production-safe. Existing `/api/metrics`, website checks, SSL checks, database checks, server dashboards, agent startup behavior, and alert channels are preserved.
 
 ## 2. Repository Map
 
@@ -39,258 +47,178 @@ Important owned paths:
 ```text
 app/
   Console/Commands          Artisan commands for scheduled monitoring tasks
-  Events                    Reverb broadcast events
-  Http/Controllers          Web UI and API controllers
-  Http/Middleware           Admin gate
-  Http/Requests             Form request validation
-  Jobs                      Queue workers for checks, metrics, alerts, scans
-  Mail                      Website/SSL email mailables
+  Events                    broadcast events
+  Http/Controllers          web UI and API controllers
+  Http/Middleware           admin and access middleware
+  Http/Requests             request validation classes
+  Jobs                      queue workers for checks, metrics, alerts, scans
+  Mail                      website and SSL email mailables
   Models                    Eloquent domain models
-  Policies                  Monitor access policy
-  Providers                 App and dynamic email config providers
-  Services                  Scanners, alerting, deployment, resource services
+  Policies                  monitor access policy
+  Providers                 app and dynamic email config providers
+  Services                  alerting, deployment, reporting, scanning, resource services
+
+bootstrap/
+  providers.php             application and package provider registration
 
 config/
-  agent.php                 Agent deployment defaults, templates, feature flags
-  services.php              Agent key, AI/log/webshell/external integrations
-  queue.php                 Queue connection behavior
+  agent.php                 agent deployment defaults, feature flags, service templates
+  services.php              integrations, AI/log/webshell/external services
+  queue.php                 queue connection behavior
   reverb.php                WebSocket server config
 
 database/
-  migrations                Schema for users, monitors, servers, services, apps, audits
-  seeders                   Roles, permissions, demo/application/admin data
+  migrations                schema for users, monitors, servers, apps, agents, IIS, reports
+  seeders                   roles, permissions, demo/admin/application data
 
 resources/
-  views                     Dark Blade dashboard UI
+  views                     Blade dashboard UI
   js                        Alpine, Echo/Reverb bootstrap
   css                       Tailwind app styles
 
 routes/
-  web.php                   Authenticated UI routes and /api/metrics ingestion route
-  console.php               Scheduler definitions
+  web.php                   authenticated UI routes and local API ingestion routes
+  console.php               scheduled monitoring definitions
   auth.php                  Laravel Breeze auth routes
-  channels.php              Broadcast auth channels
+  channels.php              broadcast auth channels
 
 server-monitor-agent/
-  agent.js                  Node.js metrics and Windows service agent
-  installer/*.ps1           Windows service install/update/restart/uninstall scripts
-  dist/*.exe                Packaged agent executable artifacts
+  agent.js                  Node.js metrics, service, and IIS collector agent
+  installer/*.ps1           development/service installer scripts
+  dist/*.exe                packaged agent executable artifacts
 
 tests/
-  Feature                   Feature coverage for monitoring, agents, apps, auth, logs
-  Unit                      Minimal unit example
+  Feature                   coverage for monitoring, agents, apps, IIS, reports, auth, logs
 ```
 
-Dependency/generated paths that should not be treated as source review targets:
+## 3. Runtime Architecture
 
-- `vendor/`
-- `node_modules/`
-- `server-monitor-agent/node_modules/`
-- `storage/framework/`
-- `bootstrap/cache/`
+### Laravel Application
 
-## 3. Runtime Stack
+The Laravel app owns user authentication, dashboards, monitor configuration, API ingestion, queue dispatch, alert routing, report generation, permissions, and metadata persistence.
 
-Backend:
+Key runtime properties:
 
-- PHP 8.2+
-- Laravel 11
-- Laravel Reverb
-- Spatie Laravel Permission
-- Pest/PHPUnit tests
-- MySQL/MariaDB in Docker
-- Database-backed Laravel queues
+- Laravel 11 on PHP 8.3.
+- MySQL/MariaDB stores application metadata, monitor results, server metrics, IIS summaries, application mapping, audit logs, and reports.
+- Queue workers handle metric processing, website checks, database checks, SSL checks, alert fan-out, scan jobs, and service commands.
+- Blade/Tailwind provides the current dashboard UI.
+- Spatie permissions controls module access.
 
-Frontend:
+### Windows Agent
 
-- Blade
-- Tailwind CSS
-- Alpine.js
-- Vite
-- Chart.js loaded from CDN in server resource view
-- Mermaid loaded from CDN in layout
+The Node.js agent keeps the existing metric loop intact and adds optional IIS log collection:
 
-Agent:
+```text
+Agent Core
+  - Existing metrics loop
+  - Existing heartbeat metadata
+  - Existing Windows service monitoring
+  - Existing Windows service control polling
+  - Optional IIS log collector, disabled by default
+```
 
-- Node.js
-- `systeminformation`
-- `axios`
-- PowerShell for Windows service discovery/control
-- `@yao-pkg/pkg` for Windows executable packaging
+Old config remains valid:
 
-Docker services:
+```json
+{
+  "serverId": 1,
+  "apiUrl": "https://example.com/api/metrics",
+  "apiKey": "legacy-or-server-key"
+}
+```
 
-- `app`: Apache/PHP Laravel app on port `8000`.
-- `db`: MariaDB.
-- `worker`: `php artisan queue:work --verbose --tries=3 --timeout=90`.
-- `scheduler`: runs `schedule:run` every 60 seconds.
-- `reverb`: WebSocket service on port `8080`.
+IIS logging is optional:
 
-## 4. Route Inventory
+```json
+{
+  "iisLogs": {
+    "enabled": false,
+    "paths": [],
+    "scanIntervalSeconds": 60,
+    "summaryOnly": true,
+    "maxLinesPerRun": 5000,
+    "sendRawSamples": false,
+    "sampleLimit": 20,
+    "allowlist": {
+      "ips": [],
+      "urlContains": [],
+      "userAgents": []
+    }
+  }
+}
+```
 
-Total routes observed with `php artisan route:list`: 104.
+If `iisLogs` is absent or disabled, the agent behaves as before.
 
-Public/basic:
+## 4. Route and API Inventory
 
-- `GET /`
-- `GET /status`
-- `GET /up`
+### Main UI Routes
 
-Auth:
+Representative authenticated routes in `routes/web.php`:
 
-- Registration, login, logout, password reset, email verification, password confirmation.
+| Area | Routes | Purpose |
+| --- | --- | --- |
+| Dashboard | `/dashboard`, root redirect | main monitoring overview |
+| Monitors | `/monitors`, `/monitors/create`, `/monitors/{monitor}` | website monitor CRUD and details |
+| Public status | `/status`, `/status/{slug}` | public uptime status views |
+| SSL | `/ssl-monitor`, `/ssl-conversion` | certificate tracking and conversion utilities |
+| SEO/security | `/seo-security`, security scan routes | SEO poisoning and security scans |
+| Log inspection | `/logs`, upload/analyze routes | log upload analysis and optional AI summary |
+| Applications | `/applications`, `/application-urls/{id}/link-monitor` | app mapping and URL monitor linking |
+| Servers | `/servers`, `/servers/{server}` | inventory and server details |
+| Agents | `/agents`, `/servers/{server}/agent-config`, `/servers/{server}/agent-package` | agent operations and deployment |
+| Resources | `/server-resources` | node resource health dashboard |
+| Database monitors | `/database-monitors` | database check configuration/results |
+| Network monitors | `/network-monitors`, `/network-map` | TCP, DNS, ping-placeholder, topology, dependency mapping, and configured port baseline checks |
+| IIS logs | `/iis-logs`, `/iis-logs/servers/{server}` | IIS summary and per-server drilldown |
+| Reports | `/reports/maintenance`, `/reports/maintenance/history` | maintenance report generator/history |
+| Admin | `/admin/*` | users, roles, permissions, settings |
 
-Main monitoring:
+### API Routes
 
-- `GET /dashboard` -> `MonitorController@index`
-- `GET /monitors/create` -> `MonitorController@create`
-- `POST /monitors` -> `MonitorController@store`
-- `GET /monitors/{monitor}/edit` -> `MonitorController@edit`
-- `PATCH /monitors/{monitor}` -> `MonitorController@update`
-- `DELETE /monitors/{monitor}` -> `MonitorController@destroy`
-- `POST /monitors/{monitor}/toggle` -> `MonitorController@toggle`
-- `POST /monitors/{monitor}/check` -> `MonitorController@check`
+Current ingestion endpoints:
 
-Server inventory/resources:
+| Endpoint | Controller | Compatibility Notes |
+| --- | --- | --- |
+| `POST /api/metrics` | `MetricsController@store` | Existing agent path. Must remain unchanged. |
+| `GET /api/service-commands` | service command controller path | Existing agent command polling. |
+| `POST /api/service-commands/{id}/result` | service command result path | Existing service control result reporting. |
+| `POST /api/iis-logs/summary` | `Api\IisLogSummaryController@store` | New additive IIS summary ingestion. Returns 202. |
+| `POST /api/network-checks/results` | `Api\NetworkCheckResultController@store` | New additive agent-side network check ingestion. Returns 202. |
 
-- `GET /servers` -> `ServerController@index`
-- `GET /servers/create` -> `ServerController@create`
-- `POST /servers` -> `ServerController@store`
-- `GET /servers/{server}/edit` -> `ServerController@edit`
-- `PATCH /servers/{server}` -> `ServerController@update`
-- `DELETE /servers/{server}` -> `ServerController@destroy`
-- `GET /server-resources` -> `ServerResourcesController@index`
-- `GET /server-resources/snapshot` -> `ServerResourcesController@snapshot`
-- `GET /server-resources/history` -> `ServerResourcesController@history`
+The IIS endpoint reuses existing agent authentication behavior and supports the global `AGENT_API_KEY` compatibility path plus per-server keys where configured.
 
-Agent operations:
+## 5. Domain Model Inventory
 
-- `GET /agents` -> `AgentController@index`
-- `GET /agents/{server}/config` -> `AgentController@downloadConfig`
-- `GET /servers/{server}/agent-config` -> `AgentController@downloadConfig`
-- `GET /servers/{server}/agent-package` -> `AgentController@downloadPackage`
-- `POST /servers/{server}/agent-key/rotate` -> `AgentController@rotateKey`
+### Monitoring Core
 
-Metrics API:
+| Model | Function |
+| --- | --- |
+| `Monitor` | Website monitor definition, URL, interval, alert recipients, maintenance window, ownership. |
+| `CheckResult` | Website check result, response code, response time, status, body/SEO/security metadata. |
+| `SslCertificate` or SSL result model | Certificate metadata and expiry tracking. |
+| `Alert` / alert related records | Alert history, status, channel delivery metadata. |
 
-- `POST /api/metrics` -> `Api\MetricsController@store`
+### Server and Agent Operations
 
-Windows services:
+| Model | Function |
+| --- | --- |
+| `Server` | Inventory record, heartbeat, hostname, OS, runtime, metrics summary, agent key hash, IIS thresholds. |
+| `ServerMetric` | CPU, memory, disk, process/resource metric samples. |
+| `ServerService` | Discovered Windows services and service health. |
+| `ServiceCommand` | Queued start/stop/restart service commands for agents. |
+| `AgentAuditLog` | Agent config generation, package download, key rotation, and deployment audit trail. |
 
-- `GET /servers/windows-services` -> `WindowsServiceController@index`
-- `POST /servers/{server}/windows-services` -> `WindowsServiceController@store`
-- `DELETE /windows-services/{windowsService}` -> `WindowsServiceController@destroy`
-- `POST /windows-services/{windowsService}/commands` -> `WindowsServiceController@command`
+### Application Mapping
 
-Database monitors:
+| Model | Function |
+| --- | --- |
+| `Application` | Application name, environment, min required app/db servers, health calculation. |
+| `ApplicationServer` | Pivot mapping servers to applications with roles. |
+| `ApplicationUrl` | Application URL, optional linked monitor, normalized URL, current URL status. |
 
-- CRUD plus `POST /database-monitors/{databaseMonitor}/test`.
-
-Application mapping:
-
-- `GET /applications` -> `ApplicationController@index`
-- `GET /applications/create` -> `ApplicationController@create`
-- `POST /applications` -> `ApplicationController@store`
-- `GET /applications/{application}` -> `ApplicationController@show`
-- `GET /applications/{application}/edit` -> `ApplicationController@edit`
-- `PATCH /applications/{application}` -> `ApplicationController@update`
-
-Security/analysis:
-
-- `GET/POST /server-logs/scan`
-- `GET/POST /log-inspections`
-- `GET /log-inspections/{logInspection}`
-- `POST /log-inspections/{logInspection}/ai-analyze`
-- `GET /incidents`
-- `GET/POST /ssl-conversion`
-- SSL monitor CRUD/check routes
-- `GET /seo-security`
-- `POST /seo-security/scan`
-- `POST /seo-security/webshell-scan`
-- `GET/POST /assets`
-
-Admin:
-
-- Admin dashboard, user approval, permission editing, user delete/toggle admin.
-- Email and Telegram settings/test/fetch/clear routes.
-
-## 5. Main Functional Flows
-
-### 5.1 Agent Metrics Ingestion
-
-1. Agent loads config from `SERVER_MONITOR_CONFIG`, adjacent `config.json`, current directory, or bundled source directory.
-2. Agent requires `serverId`, `apiUrl`, and `apiKey`.
-3. Agent collects:
-   - CPU current load
-   - RAM used/total
-   - main disk used/total
-   - Windows service statuses if running on Windows
-   - pending service command results
-4. Agent posts payload to `/api/metrics` with `X-API-Key`.
-5. `MetricsController@store`:
-   - requires API key header
-   - validates payload fields
-   - rate-limits per reported `server_id`
-   - finds existing server
-   - authenticates per-server hash if present, else global `services.agent.key`
-   - optionally auto-registers unknown server
-   - syncs agent metadata onto `servers`
-   - claims queued Windows service commands
-   - returns monitored service list and commands
-   - dispatches `ProcessServerMetric`
-6. `ProcessServerMetric@handle`:
-   - creates `server_metrics`
-   - updates `servers.last_heartbeat_at` using server receipt time
-   - evaluates CPU/RAM/disk thresholds
-   - updates Windows service records and check history
-   - processes command results
-   - broadcasts `ServerMetricUpdated`
-
-Compatibility notes:
-
-- Existing payload fields remain unchanged.
-- New metadata fields are nullable/optional.
-- Global `AGENT_API_KEY` compatibility remains.
-- Per-server API key is preferred when `agent_api_key_hash` exists.
-
-### 5.2 Server Resources Dashboard
-
-1. `ServerResourcesController@index` passes an initial server snapshot from `ServerResourcesService`.
-2. `resources/views/server-resources.blade.php` seeds Alpine with the initial snapshot.
-3. Browser polls `/server-resources/snapshot` every five seconds.
-4. History charts call `/server-resources/history?server_id=...&hours=...`.
-5. Chart data is derived from `server_metrics` and returned as CPU/RAM/disk percentages.
-
-### 5.3 Windows Service Monitoring and Control
-
-1. Agent sends `services[]` with name/display/status/startup type.
-2. `ProcessServerMetric` upserts `windows_services`.
-3. First-seen services default to `is_monitored = true`.
-4. Removed services are soft-disabled by setting `is_monitored = false`.
-5. Users with `module.service_control` can queue start/stop/restart.
-6. API response returns up to five queued commands.
-7. Agent runs PowerShell service commands and reports results in the next metrics payload.
-
-### 5.4 Website and SSL Monitoring
-
-1. `MonitorController` manages website monitors.
-2. `CheckWebsiteJob` performs HTTP GET with timeout and SSL verification disabled.
-3. It records `check_results`, optional SEO results, SSL certificate metadata, and broadcasts `MonitorChecked`.
-4. Down/recovered notifications are sent to monitor recipients and advanced channels.
-5. SSL monitor UI scopes to HTTPS URLs and can queue immediate checks.
-6. `SslRenewalReminderJob` sends daily reminders according to per-monitor thresholds.
-
-### 5.5 Database Monitoring
-
-1. `DatabaseMonitorController` stores encrypted database credentials via model accessors.
-2. `CheckDatabaseConnection` uses PDO to run `select 1`.
-3. Results are stored in `database_checks`.
-4. Monitor summary fields are updated on `database_monitors`.
-5. Failure alerts dispatch through the same email/Slack/Discord/Telegram pattern.
-
-### 5.6 Application Mapping
-
-Supported roles:
+Supported application roles:
 
 - `web`
 - `application`
@@ -299,523 +227,802 @@ Supported roles:
 - `scheduler`
 - `file_storage`
 
-Flow:
+The same server can provide multiple roles for the same application. This supports single-server deployments and clustered deployments.
 
-1. `ApplicationController` stores application metadata.
-2. URLs are stored in `application_urls`.
-3. Server-role mappings are stored in `application_servers`.
-4. The same server can be attached multiple times with different roles.
-5. Minimum rules are stored in `application_component_rules`.
-6. `Application::healthSummary()` calculates:
-   - Critical when any URL is down.
-   - Critical when healthy app servers fall below `app_servers` minimum.
-   - Critical when healthy database servers fall below `database_servers` minimum.
-   - Critical when required non-app/db component is unhealthy.
-   - Warning when a cluster node is down but minimums are still met.
-   - Healthy when all required components are healthy.
+### IIS Log Monitoring
 
-### 5.7 Agent Deployment Generator
-
-1. `AgentController@index` renders fleet status.
-2. `downloadConfig` generates a fresh plain key, stores only SHA-256 hash, builds config, audits generation, returns JSON attachment.
-3. `downloadPackage` generates a fresh key, builds config, creates ZIP, audits package download, returns ZIP.
-4. `rotateKey` generates a new key hash and audits rotation.
-5. `AgentDeploymentService` owns:
-   - plain key generation
-   - SHA-256 hash comparison
-   - config generation
-   - default Windows service templates
-   - request option normalization
-   - ZIP creation
-   - audit logging
-
-Security note:
-
-- Plain keys are not stored.
-- Generating config/package currently rotates the key because plaintext cannot be recovered later.
-
-## 6. Function Inventory
-
-### 6.1 Controllers
-
-| Class | Function | Purpose |
-| --- | --- | --- |
-| `AdminController` | `index` | Admin dashboard stats, users, monitors, permissions |
-| `AdminController` | `toggleMonitor`, `checkMonitor`, `assignMonitor`, `destroyMonitor` | Admin monitor operations |
-| `AdminController` | `toggleUserAdmin`, `destroyUser`, `approveUser` | User administration |
-| `AdminController` | `editPermissions`, `updatePermissions` | Spatie permission management |
-| `AdminController` | `emailSettings`, `updateEmailSettings`, `testEmailSettings` | Email channel configuration |
-| `AdminController` | `telegramSettings`, `updateTelegramSettings`, `fetchTelegramChatId`, `clearTelegramUpdates`, `testTelegramSettings` | Telegram configuration |
-| `AgentController` | `index` | Agent fleet operations dashboard |
-| `AgentController` | `downloadConfig` | Generate per-server config JSON and audit |
-| `AgentController` | `downloadPackage` | Generate agent deployment ZIP and audit |
-| `AgentController` | `rotateKey` | Rotate per-server agent key hash |
-| `AgentController` | `resolveServer` | Resolve server route model/id/server_id fallback |
-| `AgentController` | `preview` | Config preview helper, currently no registered route |
-| `AlertChannelController` | `index`, `store`, `destroy` | User alert channel CRUD |
-| `ApplicationController` | `index`, `create`, `store`, `edit`, `update`, `show` | Application mapping UI and persistence |
-| `ApplicationController` | `validatedApplication`, `parseUrls`, `syncUrls`, `syncMappings`, `syncRules` | Application mapping internals |
-| `AssetIntelligenceController` | `index`, `scan` | DNS/asset intelligence UI |
-| `DatabaseMonitorController` | `index`, `create`, `store`, `edit`, `update`, `destroy`, `test` | Database monitor CRUD and test dispatch |
-| `DatabaseMonitorController` | `validateInput` | Database monitor validation |
-| `IncidentController` | `index` | Incident history aggregation page |
-| `LogInspectionController` | `index`, `store`, `show`, `analyzeWithAi` | Log upload, preview, heuristic analysis, AI analysis |
-| `LogInspectionController` | `analyzeFile`, `extractLevel`, `detectSourceType`, `appearsBinary`, `assertUploadIsSafe`, `readPreviewLines` | Log parsing and upload safety |
-| `LogInspectionController` | `requestAiLogAnalysis`, `availableAiProviders`, `providerConfig`, `providerAttemptOrder`, `appearsBinaryBytes`, `extractJsonObject` | AI provider flow |
-| `MonitorController` | `index`, `create`, `store`, `edit`, `update`, `destroy`, `toggle`, `check` | Website monitor dashboard and CRUD |
-| `MonitorController` | `parseTags` | Comma-separated tag normalization |
-| `ProfileController` | `edit`, `update`, `destroy` | Breeze profile management |
-| `SeoSecurityController` | `index`, `scan`, `webshellScan` | SEO/security dashboard and scans |
-| `ServerController` | `index`, `create`, `store`, `edit`, `update`, `destroy` | Server inventory CRUD |
-| `ServerController` | `parseTags` | Server tag normalization |
-| `ServerLogScannerController` | `index`, `scan` | Manual server log scanning |
-| `ServerResourcesController` | `index`, `snapshot`, `history` | Resource dashboard and history APIs |
-| `ServerResourcesController` | `percentage` | Metric percentage helper |
-| `SslConversionController` | `index`, `convert` | Certificate conversion utility |
-| `SslMonitorController` | `index`, `store`, `check`, `checkAll`, `destroy`, `updateThreshold` | SSL monitor page |
-| `SslMonitorController` | `sslMonitorQuery`, `parseUrls`, `normalizeUrl`, `nameFromUrl`, `sslDaysLeft` | SSL monitor helpers |
-| `WindowsServiceController` | `index`, `store`, `command`, `destroy` | Windows service monitoring and control |
-| `Api\MetricsController` | `store` | Agent metrics ingestion |
-| `Api\MetricsController` | `validateApiKey`, `registerServerFromAgent`, `syncAgentMetadata`, `claimCommands`, `monitoredServices` | API auth, auto-registration, command/service response |
-
-### 6.2 Models
-
-| Model | Important Functions |
+| Model | Function |
 | --- | --- |
-| `AgentDeploymentAudit` | `server` |
-| `AlertChannel` | `user` |
-| `Application` | `servers`, `urls`, `componentRules`, `healthStatus`, `healthSummary`, `minRequired`, `serversForRoles`, `urlStatusSummary`, `urlStatus`, `isServerHealthy` |
-| `ApplicationComponentRule` | `application` |
-| `ApplicationServer` | Pivot model for repeated server-role mappings |
-| `ApplicationUrl` | `application`, `monitor` |
-| `CheckResult` | `monitor` |
-| `DatabaseCheck` | `databaseMonitor` |
-| `DatabaseMonitor` | `checks`, `latestCheck` plus encrypted password accessor/mutator |
-| `EmailSetting` | encrypted password accessor/mutator, `getActive`, `toMailConfig` |
-| `FileIntegrityHash` | `monitor` |
-| `LogInspection` | `user` |
-| `Monitor` | `user`, `latestResult`, `latestSeoResult`, `checkResults`, `seoResults`, `isUnderMaintenance`, `alertEmailRecipients`, `uptimePercentage` |
-| `SeoDiscoveredPage` | `monitor` |
-| `SeoResult` | `monitor` |
-| `SeoScan` | `monitor` |
-| `Server` | `latestMetric`, `isUnderMaintenance`, `metrics`, `windowsServices`, `windowsServiceCommands`, `applications`, `agentHeartbeatStatus`, `agentVersionState`, `agentStatusSummary` |
-| `ServerMetric` | `scopeLatestForServer` |
-| `TelegramSetting` | encrypted bot token accessor/mutator |
-| `User` | `casts`, `monitors`, `logInspections`, `alertChannels` |
-| `WebshellScan` | data model for scan history |
-| `WindowsService` | relationships/casts for service state |
-| `WindowsServiceCheck` | check history model |
-| `WindowsServiceCommand` | queued command constants/state |
+| `IisLogSummary` | Per-server IIS request summary windows. |
+| `IisSuspiciousEvent` | Limited suspicious IIS samples for investigation. |
+| `IisLogCollectorStatus` | Latest collector health per server. |
 
-### 6.3 Jobs
+### Reporting
 
-| Job | Function | Purpose |
-| --- | --- | --- |
-| `CheckDatabaseConnection` | `handle` | Test DB connection and persist result |
-| `CheckDatabaseConnection` | `dsn`, `ensurePdoDriverIsLoaded`, `probeQuery`, `canAlert`, `sendFailureAlert` | DB check helpers and alerting |
-| `CheckServerHeartbeats` | `handle`, `isOffline`, `canAlert` | Offline heartbeat alert evaluation |
-| `CheckWebsiteJob` | `handle` | Website uptime/SSL/SEO check and alert dispatch |
-| `CheckWebsiteJob` | `detectSeoPoisoning`, `extractOutboundLinks`, `checkSsl`, `recordSslFailure`, `dispatchAdvancedAlerts` | Website check helpers |
-| `FileIntegrityJob` | `handle` | File integrity monitoring |
-| `InternalCrawlJob` | `handle` | Internal crawl for SEO/security |
-| `ProcessServerMetric` | `handle` | Persist metrics, heartbeat, services, command results, broadcast |
-| `ProcessServerMetric` | `evaluateThresholds`, `canAlert`, `processWindowsServices`, `shouldAlertOnService`, `processCommandResults`, `failed` | Metric processing helpers |
-| `RunWebshellScanJob` | `handle`, `storeResult` | Scheduled/manual webshell scan persistence |
-| `ScanDnsIntelligenceJob` | `handle` | DNS/asset intelligence scan |
-| `SendTelegramNotification` | `handle` | Telegram queue notification |
-| `SeoScanJob` | `handle` | SEO scan worker |
-| `SslRenewalReminderJob` | `handle`, `sendSslReminder` | SSL expiry reminder worker |
-
-### 6.4 Services
-
-| Service | Main Functions | Purpose |
-| --- | --- | --- |
-| `AgentDeploymentService` | `generatePlainKey`, `keyMatches`, `buildConfig`, `preview`, `defaultWindowsServices`, `normalizeOptions`, `createPackage`, `packageFilename`, `audit`, `hashKey`, `readme` | Secure agent config/package generation |
-| `CrawlerService` | crawl helpers | Internal crawl support |
-| `DnsScannerService` | DNS scan helpers | Asset intelligence |
-| `FileIntegrityService` | hash scan helpers | File integrity monitoring |
-| `RipgrepScanner` | scan wrappers | Fast local log/content search |
-| `SearchEngineMonitorService` | search monitoring helpers | SEO search visibility |
-| `SearchEngineSeoScanner` | search provider scan helpers | Public search poisoning detection |
-| `SeoScannerService` | scan helpers | SEO page poisoning detection |
-| `ServerAlertService` | `sendThresholdAlert`, `sendOfflineAlert`, `sendWindowsServiceAlert`, `dispatch`, `formatMessage`, `formatPercent` | Server alert fanout |
-| `ServerResourcesService` | `getSnapshot` plus older local host resource helpers | Server snapshot service for resource dashboard |
-| `SslConverterService` | certificate conversion helpers | SSL conversion page |
-| `TelegramService` | `isEnabled`, `getLastError`, `sendMessage`, `testConnection`, `fetchChatIdFromUpdates`, `clearFetchedUpdates` | Telegram integration |
-| `WebshellScannerService` | `scan`, `resolveTargetPath`, `iterFiles`, `shouldScanFile` | Webshell detection under allowed roots |
-
-### 6.5 Agent Functions
-
-`server-monitor-agent/agent.js` contains one main class: `ServerMonitorAgent`.
-
-| Function | Purpose |
+| Model | Function |
 | --- | --- |
-| `constructor` | Load config and initialize runtime state |
-| `loadConfig` | Merge file config and environment variables, validate required config |
-| `resolveConfigPath` | Locate config file |
-| `collectMetrics` | Collect CPU/RAM/disk/services and pending command results |
-| `sendMetrics` | POST metrics with retries |
-| `delay` | Promise sleep helper |
-| `parseWindowsServices` | Parse env/file service lists |
-| `parseBoolean` | Boolean config helper |
-| `collectWindowsServices` | Dispatch named/autodiscovered Windows service collection |
-| `collectNamedWindowsServices` | PowerShell lookup for explicit services |
-| `collectDiscoveredWindowsServices` | PowerShell service inventory with keyword matching |
-| `execFile` | Promise wrapper around `child_process.execFile` |
-| `handleServerResponse` | Store monitored services and execute returned commands |
-| `executeServiceCommand` | Run PowerShell start/stop/restart and report result |
-| `clearCommandResults` | Clear results after successful send |
-| `isSystemDisk` | Identify primary/system disk |
-| `getDiskUsage` | Pick main disk or fallback to statfs |
-| `getDiskUsageFromStatfs` | Cross-platform disk fallback |
-| `run` | Main metric loop |
-| `stop` | Graceful stop flag |
+| `MaintenanceReport` | Generated report metadata, filters, summary JSON, status, and generated file path. |
 
-## 7. Database/Data Model Summary
+### Security and Analysis
 
-Core Laravel/auth:
+| Model | Function |
+| --- | --- |
+| `LogInspection` | Uploaded log analysis results and heuristic counts. |
+| `Incident` or incident records | Incident history and alert/security events where available. |
+| Webshell/security scan records | File integrity, webshell findings, and security scan history. |
 
-- `users`, `password_reset_tokens`, `sessions`
-- `cache`, `cache_locks`
-- `jobs`, `job_batches`, `failed_jobs`
-- Spatie permission tables: `permissions`, `roles`, `model_has_permissions`, `model_has_roles`, `role_has_permissions`
+### Access Control
 
-Website monitoring:
+| Model | Function |
+| --- | --- |
+| `User` | Authenticated user and permissions. |
+| Spatie `Role` / `Permission` | Role/module permission mapping. |
 
-- `monitors`: website URLs, owner, group/tags, interval, active flag, SEO fields, SSL fields, alert emails, maintenance windows.
-- `check_results`: status code, response time, up/down, checked timestamp.
-- `seo_results`: SEO suspicion result, patterns, search findings/queries.
+## 6. Feature Modules
 
-Server monitoring:
+### 6.1 Website Monitoring
 
-- `servers`: inventory, server ID, name, type, host metadata, group/tags, geo, thresholds, heartbeat timestamps, maintenance, agent metadata, agent key hash, alert cooldown timestamps.
-- `server_metrics`: raw CPU/RAM/disk samples by `server_id`.
-- `windows_services`: service state per server.
-- `windows_service_checks`: service history.
-- `windows_service_commands`: queued service control commands and results.
+Main files:
 
-Application mapping:
+- `app/Jobs/CheckWebsiteJob.php`
+- `app/Http/Controllers/MonitorController.php`
+- `app/Console/Commands/RunMonitorChecks.php`
+- monitor/check result migrations and tests
 
-- `applications`: app name/code/environment/owner/status.
-- `application_servers`: repeated server-role pivot with `role`, `is_primary`, `is_required`, notes.
-- `application_urls`: app URLs or linked monitor IDs.
-- `application_component_rules`: minimum required app/database server counts.
+Functions:
 
-Database monitoring:
+- Scheduled website checks.
+- Manual checks from UI.
+- HTTP status, response time, downtime tracking.
+- Alert recipient handling.
+- Maintenance window support.
+- SEO/security metadata capture where enabled.
 
-- `database_monitors`: DB endpoint credentials and latest status.
-- `database_checks`: DB check history.
+Recent safety fix:
 
-Security/analysis:
+- `$response` is initialized before the HTTP try block.
+- Fallback paths use `$response?->body() ?? ''`.
+- Exception paths can record failure results without undefined variable errors.
 
-- `log_inspections`: uploaded log metadata, counts, highlights, AI result fields.
-- `seo_scans`: manual/scheduled SEO scan history.
-- `seo_discovered_pages`: crawl/discovery inventory.
-- `file_integrity_hashes`: file hash baseline/history.
-- `webshell_scans`: webshell scan history.
+### 6.2 SSL Monitoring
 
-Alert/config/audit:
+Functions:
 
-- `alert_channels`: user notification endpoints.
-- `email_settings`: encrypted SMTP settings.
-- `telegram_settings`: encrypted Telegram bot token.
-- `agent_deployment_audits`: config/package/key rotation audit events.
+- SSL certificate discovery.
+- Expiry status calculation.
+- SSL monitor dashboard.
+- Dispatch of website checks when SSL-related actions need refresh.
 
-## 8. Scheduler and Queue Design
+### 6.3 Server Inventory and Metrics
 
-Schedulers in `routes/console.php`:
+Functions:
 
-- Website monitor command every minute.
-- Website check and DNS intelligence dispatch every five minutes.
-- Database monitor checks every five minutes.
-- SEO checks hourly.
-- Internal crawl daily.
-- File integrity checks every ten minutes.
-- Webshell scans daily at 03:00 for configured allowed roots.
-- SSL renewal reminders daily.
-- HTTPS SSL metadata refresh daily at 02:00.
-- Server heartbeat/offline alerts every minute.
+- Agent registration/update through `/api/metrics`.
+- Heartbeat tracking.
+- CPU, memory, disk, runtime, OS, hostname, capability and version metadata.
+- Dashboard server health and resource summaries.
 
-Queue behavior:
+Compatibility:
 
-- Metrics ingestion is asynchronous through `ProcessServerMetric`.
-- Website checks, DB checks, Telegram sends, SEO scans, file integrity, webshell scans, DNS scans, and reminders are queued.
-- Docker has one generic worker for all queues. This is simple and works at small scale, but high-volume metrics/log/security jobs will eventually need separate queues/workers.
+- Existing metric payload fields are preserved.
+- New metadata and IIS health fields are optional and additive.
 
-## 9. UI Review
+### 6.4 Windows Services
 
-Layout:
+Functions:
 
-- Main app layout is a dark dashboard shell with sidebar navigation, permission-gated modules, profile/logout controls, theme toggle, and shared session success alert.
-- Most pages use Tailwind utility classes and the same slate/orange dark design language.
+- Agent service discovery and status reporting.
+- Configurable monitored services.
+- Service stop/start/restart commands.
+- Command result capture.
+- Alerts for stopped monitored services.
 
-Important pages:
+Configured deployment templates include:
 
-- `dashboard.blade.php`: website monitor dashboard.
-- `server-resources.blade.php`: server metric cards and Chart.js history charts.
-- `servers/index/create/edit.blade.php`: server inventory and agent setup snippets.
-- `servers/windows-services.blade.php`: monitored services and queued command controls.
-- `agents/index.blade.php`: agent fleet status, app mapping names, deployment actions.
-- `agents/_deployment-actions.blade.php`: config/package/download/copy/rotate UI and preview modal logic.
-- `applications/index/create/edit/show.blade.php`: application map dashboard and detail.
-- `database-monitors/*`: DB monitor CRUD and status.
-- `log-inspections/*`: log upload/preview/AI analysis.
-- `seo/index.blade.php`: SEO/security/webshell tabs.
-- `ssl-monitors/index.blade.php`: SSL status dashboard.
+- Application server: `W3SVC`, `WAS`, `IISADMIN`, `ColdFusion 2023 Application Server`
+- Database server: `MySQL80`
+- App/database server: all application services plus `MySQL80`
 
-UI consistency:
+### 6.5 Database Monitoring
 
-- The dark dashboard style is mostly consistent.
-- Some pages use very rounded cards (`rounded-3xl`, `rounded-[2.5rem]`, `rounded-[3rem]`) while newer requirements prefer smaller card radius. If this UI standard matters, normalize gradually.
-- Some SVG icons are inline rather than centralized/icon-library based. This is acceptable for current Blade, but a future UI refactor should standardize icons.
+Functions:
 
-## 10. Security Review
+- MySQL/MariaDB and PostgreSQL connection checks.
+- Success/failure status.
+- Result history and dashboard display.
+- Inclusion in maintenance report aggregation.
 
-Implemented strengths:
+Current limitation:
 
-- Agent API requires `X-API-Key`.
-- Per-server keys store only SHA-256 hash.
-- Global key remains for old agents.
-- Config/package/key events are audited.
-- Server service control is permission-gated separately by `module.service_control`.
-- Log uploads block executable/script extensions and suspicious executable content.
-- Email/Telegram/DB passwords/tokens use encrypted accessors.
-- App and server changes validate most user input.
-- Monitor ownership is protected by `MonitorPolicy` for key actions.
+- Database monitor records are not yet mapped directly to applications. Report database health is therefore a platform-wide section unless future schema links database monitors to applications or servers.
 
-Security gaps/risks:
+### 6.6 Application Mapping
 
-- Agent per-server key hashing uses plain SHA-256, not a slow password hash or HMAC with server secret. For random 48-character keys this is acceptable, but HMAC with `APP_KEY` would reduce database-leak usefulness.
-- `/api/metrics` has no request signing, timestamp freshness check, or replay protection.
-- API rate limit is keyed by user-provided `server_id` before authentication.
-- Agent command control trusts queued commands from server; this is expected, but target hosts should run with the minimum privilege that still allows service control.
-- Website checks call `withoutVerifying()`, so uptime check succeeds against invalid TLS; SSL metadata is captured separately but HTTP fetch security is intentionally lax.
-- External CDN scripts (`Chart.js`, Mermaid, fonts) may be undesirable in restricted or high-security deployments.
+Main files:
 
-## 11. Findings and Risks
+- `app/Http/Controllers/ApplicationController.php`
+- `app/Http/Controllers/ApplicationUrlController.php`
+- `app/Models/Application.php`
+- `app/Models/ApplicationUrl.php`
+- `resources/views/applications/*`
+- `tests/Feature/ApplicationMappingTest.php`
 
-### High: Generated Agent Package Install Script Does Not Match ZIP Layout
+Functions:
 
-`AgentDeploymentService::createPackage()` adds these files at ZIP root:
+- Map each server to one or more applications.
+- Assign one or more roles per server/application.
+- Support single-server app/database deployments.
+- Support app clusters with multiple app servers and DB servers.
+- Configure minimum required app servers and database servers.
+- Show application health dashboard.
+- Show reverse mapping on server detail pages.
+- Display mapped application names on Agent Operations.
+
+URL mapping behavior:
+
+- Application URLs are normalized on sync.
+- Existing monitors with the same normalized URL are auto-linked.
+- Application health uses the linked monitor latest result.
+- If no monitor exists, URL status remains `unknown`.
+- UI provides Create Monitor and Link Monitor paths for unmapped URLs.
+
+Health calculation:
+
+- Critical if linked website monitor is down.
+- Critical if healthy app servers are below the configured minimum.
+- Critical if healthy DB servers are below the configured minimum.
+- Warning if a cluster node is down while minimum required capacity remains met.
+- Healthy when required components are healthy.
+
+### 6.7 Network Monitoring v1.1
+
+Main files:
+
+- `app/Http/Controllers/NetworkMonitorController.php`
+- `app/Http/Controllers/Api/NetworkCheckResultController.php`
+- `app/Http/Controllers/ServerPortBaselineController.php`
+- `app/Jobs/CheckNetworkMonitor.php`
+- `app/Jobs/CheckServerPortBaseline.php`
+- `app/Console/Commands/RunNetworkChecks.php`
+- `app/Services/NetworkCheckService.php`
+- `app/Services/NetworkAlertService.php`
+- `app/Models/NetworkMonitor.php`
+- `app/Models/NetworkCheckResult.php`
+- `app/Models/ServerPortBaseline.php`
+- `resources/views/network-monitors/*`
+- `tests/Feature/NetworkMonitoringTest.php`
+
+Functions:
+
+- Adds `network_monitors`, `network_check_results`, and `server_port_baselines`.
+- Adds dependency metadata: `application_id`, `source_server_id`, `target_server_id`, and `dependency_type`.
+- Supports monitor types `tcp_port`, `dns`, and `ping`; ping is safely marked unsupported when OS ping is not available.
+- Supports source types `central` and `agent`.
+- Supports dependency types `app_to_db`, `app_to_router`, `public_to_waf`, `server_to_svn`, `server_to_api`, `dns`, and `external_dependency`.
+- Central checks run from Laravel through `app:run-network-checks`.
+- Agent checks run from the Windows agent when `featureFlags.networkChecks` / `networkChecks.enabled` is enabled.
+- Agent results post to `/api/network-checks/results` using existing agent authentication.
+- Network monitoring is disabled by default.
+- Port baseline checks only run against explicitly configured server/port records. No full-range scans are performed.
+- `/network-map` shows application-level source-to-destination dependencies with port, protocol, expected state, and health badge.
+- MySQL templates can create explicit baselines for MySQL Router ports `6446` and `6447` and MySQL DB port `3306`.
+- DNS result history is stored through `network_check_results`; unexpected DNS drift is marked as `dns_drift`.
+- Monitor-level maintenance windows suppress network alerts while still storing results.
+
+Alerts:
+
+- Expected open port closed.
+- Expected closed port open.
+- DNS result mismatch.
+- DNS drift.
+- Latency threshold exceeded.
+- Cooldown is tracked per monitor or port baseline.
+
+Reporting:
+
+- Maintenance reports include a Network Connectivity Summary section.
+- Failed dependencies, DNS mismatches/drift, port baseline violations, and affected applications appear in maintenance reports.
+- Failed network checks contribute to incidents and recommendations.
+
+### 6.8 Agent Deployment Generator
+
+Main files:
+
+- `app/Services/AgentDeploymentService.php`
+- `app/Http/Controllers/AgentController.php`
+- `resources/views/agents/_deployment-actions.blade.php`
+- `config/agent.php`
+- `server-monitor-agent/installer/*.ps1`
+- `tests/Feature/AgentDeploymentTest.php`
+
+Functions:
+
+- Per-server agent API key generation.
+- Stores only API key hash in the database.
+- Shows/downloads plain key only during config/package generation.
+- Key rotation action.
+- Config generation at `GET /servers/{server}/agent-config`.
+- Package generation at `GET /servers/{server}/agent-package`.
+- Package ZIP name: `ServerMonitorAgent-{server_name}-v{agent_version}.zip`.
+- Audit log entries for config generated, package downloaded, and key rotated.
+
+Generated package contents:
 
 - `server-monitor-agent.exe`
 - `config.json`
 - `install-service.ps1`
+- `uninstall-service.ps1`
+- `restart-agent.ps1`
+- `update-agent.ps1`
+- `README.txt`
+- logs folder placeholder
 
-But `server-monitor-agent/installer/install-service.ps1` looks for:
+Deployment package installer behavior:
 
-```powershell
-..\dist\server-monitor-agent.exe
-config.json.template
+- Package-specific `install-service.ps1` copies `.\server-monitor-agent.exe` and `.\config.json` from the extracted package root into `C:\Program Files\ServerMonitorAgent`.
+- It does not reference development paths such as `..\dist\server-monitor-agent.exe`.
+- It does not reference `config.json.template`.
+
+UI actions:
+
+- Generate Config
+- Generate Package
+- Copy Install
+- Copy Update
+- Rotate Key
+
+Operational note:
+
+- Config/package generation rotates or exposes new per-server credentials. Admins must deploy the newly generated package/config before restarting the agent on that server.
+
+### 6.9 IIS Log Monitoring v1
+
+Main files:
+
+- `server-monitor-agent/agent.js`
+- `app/Http/Controllers/Api/IisLogSummaryController.php`
+- `app/Http/Controllers/IisLogController.php`
+- `app/Models/IisLogSummary.php`
+- `app/Models/IisSuspiciousEvent.php`
+- `app/Models/IisLogCollectorStatus.php`
+- `resources/views/iis-logs/*`
+- `tests/Feature/IisLogMonitoringTest.php`
+
+Agent config:
+
+- `iisLogs.enabled` defaults to `false`.
+- Supported options:
+  - `paths`
+  - `scanIntervalSeconds`
+  - `summaryOnly`
+  - `maxLinesPerRun`
+  - `sendRawSamples`
+  - `sampleLimit`
+  - `allowlist.ips`
+  - `allowlist.urlContains`
+  - `allowlist.userAgents`
+
+Agent collector behavior:
+
+- Parses IIS W3C log files under configured paths.
+- Supports common fields:
+  - `date`
+  - `time`
+  - `c-ip`
+  - `cs-method`
+  - `cs-uri-stem`
+  - `cs-uri-query`
+  - `sc-status`
+  - `cs(User-Agent)`
+- Reads only new lines using an offset state file.
+- Handles log rotation and truncation safely.
+- Counts:
+  - `total_requests`
+  - `status_2xx`
+  - `status_3xx`
+  - `status_4xx`
+  - `status_5xx`
+  - `http_404`
+  - `http_500`
+  - `suspicious_count`
+- Captures:
+  - `top_ips`
+  - `top_urls`
+  - limited `suspicious_samples`
+
+Suspicious patterns include:
+
+- `union select`
+- `information_schema`
+- `../`
+- `..\`
+- `%2e%2e`
+- `cmd.exe`
+- `powershell`
+- `cfexecute`
+- `cfide`
+- `base64`
+- `oastify.com`
+- `burpcollaborator`
+- `sqlmap`
+- `nikto`
+- `acunetix`
+- `nessus`
+- suspicious Googlebot user-agent
+
+Allowlist behavior:
+
+- IP, URL path contains, and user-agent allowlists are supported.
+- Allowlisted suspicious-looking entries are not counted as suspicious.
+
+Collector health:
+
+- Tracks `last_scan_at`.
+- Tracks `files_seen`.
+- Tracks `files_read`.
+- Tracks `lines_read`.
+- Tracks `summaries_sent`.
+- Tracks `last_error`.
+- Tracks `state_file_path`.
+- Collector errors do not crash the agent and do not stop metric submission.
+
+Laravel storage:
+
+- `iis_log_summaries` stores summary windows.
+- `iis_suspicious_events` stores limited suspicious samples.
+- `iis_log_collector_statuses` stores latest collector health per server.
+
+IIS alert tuning:
+
+Per-server threshold columns exist on `servers`:
+
+- `iis_http_500_warning_threshold`
+- `iis_http_500_critical_threshold`
+- `iis_http_404_warning_threshold`
+- `iis_http_404_critical_threshold`
+- `iis_suspicious_warning_threshold`
+- `iis_suspicious_critical_threshold`
+- `iis_alert_cooldown_seconds`
+
+The controller uses sensible defaults when these are not configured.
+
+UI:
+
+- `/iis-logs` shows per-server requests, 404 count, 500 count, suspicious count, last check, and collector health.
+- Per-server IIS detail page shows trend chart, top IPs, top URLs, suspicious samples, and collector status.
+- `/agents` shows whether IIS Logs capability is enabled.
+
+Compatibility:
+
+- `/api/metrics` is unchanged.
+- IIS logging is disabled by default.
+- Collector failures are reported through health status and `last_agent_error` style metadata, not by crashing the agent.
+
+### 6.10 Maintenance Report Module v1
+
+Main files:
+
+- `app/Http/Controllers/MaintenanceReportController.php`
+- `app/Services/MaintenanceReportService.php`
+- `app/Models/MaintenanceReport.php`
+- `resources/views/reports/maintenance/*`
+- `database/migrations/2026_05_20_020000_create_maintenance_reports_table.php`
+- `database/migrations/2026_05_20_020100_add_reports_permissions.php`
+- `tests/Feature/MaintenanceReportTest.php`
+
+Routes:
+
+```text
+GET  /reports/maintenance
+GET  /reports/maintenance/history
+POST /reports/maintenance
+GET  /reports/maintenance/{maintenanceReport}/download
 ```
 
-That means a downloaded ZIP can fail installation after extraction because the script expects a `dist` folder and config template layout, not the generated root-level files. It also does not copy the generated `config.json` into the install path.
+Permissions:
 
-Recommended fix:
+- `module.reports.view`
+- `module.reports.generate`
+- `module.reports.download`
 
-- Update generated package script or include a package-specific `install-service.ps1`.
-- The package script should copy `.\server-monitor-agent.exe` and `.\config.json` from the extracted folder.
-- Keep repo development installer separate if needed.
+The sidebar has a dedicated `Report` section, separate from Analysis.
 
-### High: Website Check SEO Error Path Can Reference an Undefined Response
+Report filters:
 
-In `CheckWebsiteJob@handle`, `$response` is created inside the HTTP try block. If the request throws and `$monitor->seo_enabled` is true, this line can evaluate a response that does not exist:
+- Report type: daily, weekly, monthly, custom.
+- Date range.
+- Application filter.
+- Server group filter.
+- Environment filter.
+- Output: HTML preview, PDF, Excel-compatible export.
 
-```php
-$html = $html ?: ($response->body() ?? '');
+`maintenance_reports` table:
+
+- `title`
+- `report_type`
+- `period_start`
+- `period_end`
+- `application_id`
+- `generated_by`
+- `status`
+- `summary`
+- `file_path`
+
+Aggregated sections:
+
+- Application health.
+- Server uptime/heartbeat.
+- CPU/RAM/disk average and max.
+- Website uptime and downtime count.
+- SSL expiry status.
+- Database check success/failure.
+- Windows service stopped events.
+- IIS log summary: 404, 500, suspicious count, top IPs, top URLs.
+- Incidents/alerts when available.
+- Webshell/security scan summary when available.
+
+Template sections:
+
+- Cover page.
+- Executive summary.
+- Scope.
+- Availability/SLA.
+- Infrastructure health.
+- Application health.
+- Database health.
+- IIS log summary.
+- SSL certificate status.
+- Incidents and alerts.
+- Recommendations.
+- Appendix.
+
+Exports:
+
+- HTML preview renders immediately.
+- PDF export uses `barryvdh/laravel-dompdf`.
+- Excel export uses SpreadsheetML `.xls` generated by the app. This avoids the current `ext-gd` requirement that blocked PhpSpreadsheet in the local PHP runtime.
+
+Generated recommendations include:
+
+- High disk usage.
+- Expiring SSL.
+- Website downtime.
+- Database failures.
+- Stopped services.
+- IIS 500 spikes.
+- Suspicious IIS activity.
+- Offline agents.
+
+Operational note:
+
+- Running Docker containers must have Composer dependencies installed or be rebuilt after `composer.json` / `composer.lock` changes. A missing container vendor dependency caused the DomPDF facade error until dependencies were installed inside the app container.
+
+### 6.11 Alerting
+
+Existing alert channels:
+
+- Email.
+- Telegram.
+- Slack.
+- Discord.
+
+Existing alert types include:
+
+- Website up/down and threshold conditions.
+- SSL expiry.
+- Server metric thresholds.
+- Windows service stopped events.
+- Database check failures.
+- IIS summary spikes.
+- Security/webshell/SEO scan findings where implemented.
+
+IIS alerts reuse existing alert delivery services and add cooldown behavior to avoid alert spam.
+
+### 6.12 Security Scans and Asset Intelligence
+
+Implemented areas include:
+
+- Webshell scanning.
+- File integrity/security scan pages.
+- SEO poisoning checks.
+- Log Scanner page.
+- Asset intelligence with infrastructure/geolocation display.
+- Vulnerability discovery UI sections.
+
+Current observation:
+
+- Geo/IP information for CDN-backed domains may correctly show the CDN edge/provider rather than the real origin. For example, Cloudflare-hosted targets commonly show Cloudflare ASN/location. This is expected unless origin discovery is implemented and authorized.
+
+## 7. Permissions and Navigation
+
+### Permission Groups
+
+The admin permissions page groups permissions into user-facing cards:
+
+- Monitors.
+- Logs and Analysis.
+- Reports.
+- Modules and Features.
+- Privileged Controls.
+- General and System.
+
+Report permissions are explicitly created before rendering the permissions UI so the Report section appears even on older installations after migration.
+
+### Super Admin Gate
+
+`AppServiceProvider` includes a `Gate::before` check so Super Admin users can pass module gates without needing every permission manually checked in the UI.
+
+### Sidebar Sections
+
+Current main sidebar structure:
+
+- Monitoring.
+- Analysis.
+- Report.
+- System.
+
+The Maintenance Report link belongs under Report, not Analysis.
+
+## 8. Database Schema Additions Reviewed
+
+### Application Mapping
+
+Application mapping is additive and uses dedicated app/application URL/pivot structures. It does not alter monitor semantics except optional linking from `application_urls.monitor_id`.
+
+### Agent Deployment
+
+Per-server API key support stores only a hash on the server record. Plain keys are only available at generation time.
+
+### IIS Logs
+
+Tables:
+
+- `iis_log_summaries`
+- `iis_suspicious_events`
+- `iis_log_collector_statuses`
+
+### Network Monitoring
+
+Tables:
+
+- `network_monitors`
+- `network_check_results`
+- `server_port_baselines`
+
+These tables store compact check metadata and history only. They do not alter `/api/metrics`.
+
+Indexes include server/date/status-oriented access patterns. These are suitable for the current summary-level v1 scope.
+
+### Maintenance Reports
+
+Table:
+
+- `maintenance_reports`
+
+The report stores summary JSON and optional generated file path. It does not modify source monitoring data.
+
+## 9. Queue and Scheduler Behavior
+
+Existing queue/scheduler behavior remains centered on:
+
+- Website checks.
+- SSL checks.
+- Metric processing.
+- Network checks.
+- Alert dispatch.
+- Database checks.
+- Service commands.
+- Security scans.
+
+The IIS summary ingestion endpoint stores compact summaries synchronously. It does not push raw high-volume logs through the existing metric queue.
+
+The maintenance report generator currently runs synchronously through the HTTP request. This is acceptable for v1 and small/medium datasets, but should become queued for larger production deployments.
+
+## 10. Backward Compatibility Analysis
+
+### Preserved
+
+- Existing `/api/metrics` endpoint.
+- Existing metric payload format.
+- Existing global `AGENT_API_KEY` compatibility.
+- Existing Windows Node.js agent config shape.
+- Existing heartbeat and metric loops.
+- Existing Windows service monitoring/control behavior.
+- Existing website, SSL, database, and alert dashboard behavior.
+- Existing monitor/check result tables and relationships.
+
+### Additive Changes
+
+- Optional `iisLogs` config section.
+- Optional `networkChecks` config section.
+- Optional IIS summary ingestion endpoint.
+- Optional network check result ingestion endpoint.
+- Optional per-server agent API keys.
+- Optional application URL monitor linking.
+- Optional report permissions and report pages.
+- New tables for IIS and reports.
+- Nullable threshold/config columns.
+
+### Potential Compatibility Footguns
+
+- Generated agent config/package can rotate the per-server agent key. Deploy the new key before restarting the service.
+- Running Docker containers need updated Composer dependencies after package changes.
+- Report PDF generation depends on DomPDF being installed and available in the runtime container.
+
+## 11. Current Test Coverage
+
+Feature coverage includes:
+
+- Website monitor management.
+- SSL monitoring.
+- Monitor alert recipients.
+- Server inventory and resource dashboards.
+- Agent deployment package/config generation.
+- Application mapping and URL linking.
+- IIS log summary ingestion, health storage, thresholds, and allowlists.
+- Maintenance report generation, HTML/PDF/Excel downloads, and permissions.
+
+Representative tests:
+
+- `tests/Feature/AgentDeploymentTest.php`
+- `tests/Feature/ApplicationMappingTest.php`
+- `tests/Feature/IisLogMonitoringTest.php`
+- `tests/Feature/MaintenanceReportTest.php`
+- `tests/Feature/MonitorManagementTest.php`
+- `tests/Feature/SslMonitorTest.php`
+
+## 12. Updated Risk Register
+
+### High Priority
+
+1. Report generation is synchronous.
+
+   Large date ranges or many servers can make report generation slow in a browser request. Move report generation to a queued job for production-scale datasets.
+
+2. Docker dependency drift can break package-backed features.
+
+   DomPDF is present in `composer.json` and `composer.lock`, but running containers must run Composer install or be rebuilt. This should be part of deployment steps.
+
+3. `/api/metrics` and `/api/iis-logs/summary` do not yet include request signing or replay protection.
+
+   Existing API key authentication remains compatible, but production hardening should add signed timestamps/nonces as optional v2 auth.
+
+### Medium Priority
+
+4. Database monitor health is not application-scoped.
+
+   Maintenance reports include database health, but without DB monitor to application/server mapping it cannot always attribute database health to a specific application.
+
+5. Per-server key hashes are SHA-256 of high-entropy tokens.
+
+   This is acceptable for generated random tokens, but a peppered HMAC or dedicated token hashing service would harden database-leak scenarios.
+
+6. IIS v1 stores summaries in MySQL.
+
+   This is acceptable for summary-only monitoring. Do not store raw logs in MySQL at scale.
+
+7. Agent package generation rotates key during download.
+
+   Secure by design, but operationally surprising. Keep confirm dialogs and audit logs visible.
+
+8. Some frontend assets still rely on browser-side CDN resources.
+
+   For locked-down/offline deployments, vendor these assets locally.
+
+### Low Priority
+
+9. `routes/web.php` is large.
+
+   As modules grow, split routes by feature file to reduce merge friction.
+
+10. Spreadsheet export is `.xls` SpreadsheetML rather than `.xlsx`.
+
+   This is functional and dependency-light, but native `.xlsx` can be revisited if the runtime includes required PHP extensions.
+
+11. CDN-backed asset intelligence may show CDN location.
+
+   This is expected behavior and should be labeled clearly in the UI to avoid confusion.
+
+## 13. Previously Flagged Issues Now Resolved
+
+These were stale findings in the older review document and have been corrected:
+
+- Agent deployment ZIP installer no longer references `..\dist` or `config.json.template`.
+- Package-specific `install-service.ps1` copies `.\server-monitor-agent.exe` and `.\config.json`.
+- `CheckWebsiteJob` no longer risks an undefined `$response` variable in exception fallback paths.
+- Application URLs now normalize and auto-link matching existing monitors.
+- Application health can use linked monitor latest results.
+- Application URL UI offers Create Monitor / Link Monitor actions.
+- Copy Install and Copy Update actions are wired to clipboard behavior with fallback text.
+- Maintenance Report navigation is now under a dedicated Report sidebar section.
+- Report permissions are created and grouped in the admin permission screen.
+- DomPDF facade is registered and runtime Composer dependencies were installed in the Docker app container.
+
+## 14. Recommended Next Steps
+
+### Immediate
+
+1. Queue maintenance report generation.
+2. Add a report generation progress/status page.
+3. Add DB monitor to server/application mapping.
+4. Add signed request support for new agent endpoints while preserving existing API key behavior.
+5. Add a deployment checklist that runs migrations, Composer install, optimize clear, and queue restart in Docker.
+
+### Near Term
+
+1. Add report scheduling and email delivery.
+2. Add local vendoring for frontend CDN assets.
+3. Add clearer CDN/origin labels to asset intelligence geo views.
+4. Add audit events for report generation/download.
+5. Add per-module health diagnostics page for agent collectors.
+
+### Later
+
+1. Move high-volume raw logs to a dedicated log store if raw logging is introduced.
+2. Add SIEM-style correlation only after IIS v1 summary monitoring is stable.
+3. Add optional signed payload v2 with nonce replay protection.
+4. Add mTLS option for agent-to-server traffic.
+
+## 15. Operational Runbook Notes
+
+### After Pulling Code
+
+Run:
+
+```bash
+composer install --no-interaction
+php artisan migrate --force
+php artisan optimize:clear
+php artisan queue:restart
 ```
 
-Recommended fix:
+For Docker:
 
-- Initialize `$response = null` before the try.
-- Use `$response?->body() ?? ''`.
-
-### Medium: Application URL Status Is Not Automatically Linked
-
-`ApplicationController::syncUrls()` creates `application_urls` rows with URL string and `status = unknown`. `Application::urlStatus()` can use a linked monitor, but the controller does not auto-link to existing monitors or create monitors for URLs.
-
-Impact:
-
-- Application health URL status will remain `unknown` unless something else updates `application_urls.status` or sets `monitor_id`.
-
-Recommended fix:
-
-- On sync, find matching `Monitor::where('url', $url)` and set `monitor_id`.
-- Optionally add a button to create/link a monitor from an application URL.
-
-### Medium: Config/Package Download Rotates Key Every Time
-
-`downloadConfig()` and `downloadPackage()` both call `generatePlainKey()`. This is secure because plaintext keys are never stored, but repeated downloads invalidate the previous per-server key.
-
-Impact:
-
-- An already-installed agent can stop authenticating after someone previews/downloads a new config/package and does not deploy it.
-
-Recommended options:
-
-- Keep current behavior but label buttons clearly: "Generate New Config/Key".
-- Add a separate "download last generated config" only if encrypted plain-key escrow is intentionally introduced.
-- Keep explicit rotate action for emergency invalidation.
-
-### Medium: `AgentController::preview` Has No Route
-
-There is a `preview()` method but no observed route. The UI preview is client-side/form-based, not this controller method.
-
-Recommended fix:
-
-- Remove the unused method or add a deliberate authenticated preview route.
-
-### Medium: Route Model Binding Fallback May Not Work for Server IDs
-
-`AgentController::resolveServer()` tries to resolve by numeric ID or `server_id`, but Laravel implicit route model binding for `Server $server` can 404 before the method runs when a non-primary-key server ID is used.
-
-Recommended fix:
-
-- Use `{server:server_id}` for routes that should accept server IDs, or keep URLs primary-key only.
-
-### Low: `ServerResourcesService` Contains Unused Local Host Resource Helpers
-
-`getCpuPercent`, `getRamInfo`, and `getStorageInfo` read the Laravel host's `/proc` state but are not used by `getSnapshot()`, which now returns agent-reported server metrics.
-
-Recommended fix:
-
-- Remove or move them to a separate host-health service if local app host monitoring is needed.
-
-### Low: Single Generic Queue Worker Can Become a Bottleneck
-
-The Docker worker processes all jobs in one queue. This is fine for current scale, but metrics, website checks, DB checks, AI analysis, scans, and future logs can compete.
-
-Recommended fix:
-
-- Introduce queue names such as `metrics`, `checks`, `alerts`, `security`, `ai`.
-- Run separate workers with independent concurrency/timeouts.
-
-## 12. Test Coverage Summary
-
-Observed Pest feature coverage:
-
-- Agent deployment:
-  - config contains correct server ID
-  - plain API key not stored
-  - package contains required files
-  - rotated key invalidates old key
-- Application mapping:
-  - single server with app and DB roles
-  - cluster warning when one node down but minimum met
-  - critical when URL down or minimum unmet
-- Server metrics:
-  - auto-registration
-  - disabled auto-registration
-  - registered active server ingestion
-  - agent version storage
-  - heartbeat uses server receipt time
-  - soft-removed services stay unmonitored
-  - service control permission requirement
-- Server inventory:
-  - group/tags
-  - server type/agent settings
-  - config route attachment
-  - setup details visible
-- Website monitor management:
-  - create/update/filter/pause/resume/check/delete
-- SSL monitor:
-  - list/add/check/check-all/delete/update threshold and authorization rules
-- Alert recipients:
-  - configured emails preferred
-  - owner fallback
-  - website/SSL reminders do not use hardcoded recipients
-- Log inspection:
-  - upload/inspect
-  - IIS-style file support
-  - user isolation
-  - max-size rejection
-  - executable content rejection
-  - AI analysis provider/fallback paths
-- Webshell scanner:
-  - suspicious PHP patterns
-  - clean file reporting
-  - path traversal/allowed-root protection
-  - scheduled/manual scan history
-- Incident history:
-  - website/SSL/webshell incident display and user scoping
-- Auth/profile/password tests from Breeze.
-
-Recommended missing tests:
-
-- Generated ZIP installer script actually works with generated ZIP layout.
-- `/api/metrics` rejects old per-server key after a package download, not only after explicit rotate.
-- Application URL auto-linking once implemented.
-- Website check exception path with SEO enabled.
-- Maintenance window suppresses website alerts if intended.
-- Queue separation once introduced.
-
-## 13. Backward Compatibility Notes
-
-Kept compatible:
-
-- Existing `/api/metrics` endpoint remains.
-- Existing metric payload fields remain required and unchanged.
-- Agent config still supports old shape:
-
-```json
-{
-  "serverId": "...",
-  "apiUrl": "...",
-  "apiKey": "..."
-}
+```bash
+docker exec web_monitor_app composer install --no-interaction --no-dev --optimize-autoloader
+docker exec web_monitor_app php artisan migrate --force
+docker exec web_monitor_app php artisan optimize:clear
+docker exec web_monitor_app php artisan queue:restart
 ```
 
-- New metadata fields are optional.
-- Global `AGENT_API_KEY` still works for existing agents.
-- New per-server key only takes priority when a server has `agent_api_key_hash`.
-- Server and monitor schema changes are additive/nullable/defaulted.
+### Report Module Check
 
-Potential compatibility footguns:
+Verify:
 
-- Downloading a new config/package invalidates the previous per-server key.
-- If an old agent is using the global key against a server that now has a per-server hash, the controller still falls back to global key if per-server match fails. This preserves compatibility but weakens per-server exclusivity until global key is disabled.
-
-## 14. Production Readiness Recommendations
-
-Near-term:
-
-- Fix generated agent ZIP/script mismatch.
-- Fix `CheckWebsiteJob` undefined `$response` path.
-- Add route or remove `AgentController::preview`.
-- Link application URLs to existing monitors.
-- Add labels explaining that config/package download generates a new key.
-- Add test for package install script layout.
-
-Next:
-
-- Move metrics jobs to a dedicated queue.
-- Add queue names for checks, alerts, scans, AI.
-- Replace CDN scripts with bundled local assets for offline/security deployments.
-- Add replay protection/signing for agent payloads.
-- Add agent-side disk spool for offline metrics if reliable metric capture is required.
-- Add retention policy for high-volume tables (`server_metrics`, check histories, service checks).
-
-Future SIEM/logging:
-
-- Do not store raw logs in MySQL.
-- Add log ingestion APIs in parallel to metrics.
-- Use ClickHouse/OpenSearch for raw/normalized log storage.
-- Keep metric queues isolated from log queues.
-- Add feature flags to agent config for logging modules.
-
-## 15. Verification Commands Used
-
-Commands run during this review:
-
-```powershell
-rg --files
-git status --short
-Get-ChildItem -Force
-rg --files app routes database resources tests config server-monitor-agent -g '!server-monitor-agent/node_modules/**' -g '!server-monitor-agent/dist/**'
-rg -n "^(class|trait|interface|enum) |function |public function|protected function|private function|Route::|Broadcast::|Artisan::|Schedule::" app routes database config tests server-monitor-agent -g '!server-monitor-agent/node_modules/**' -g '!server-monitor-agent/dist/**'
-php artisan route:list
-rg -n "^test\(|it\(" tests
+```bash
+php artisan route:list --path=reports/maintenance
+php artisan tinker --execute="dump(class_exists(Barryvdh\\DomPDF\\Facade\\Pdf::class));"
 ```
 
-No tests were rerun as part of this documentation-only pass.
+Expected:
 
+- Report routes exist.
+- DomPDF facade class exists.
+- Sidebar shows Report section for users with `module.reports.view` or Super Admin.
+
+### IIS Module Check
+
+Verify:
+
+```bash
+php artisan route:list --path=iis-logs
+```
+
+Expected:
+
+- `/iis-logs` UI route exists.
+- `/api/iis-logs/summary` endpoint exists.
+- IIS logging remains disabled unless agent config enables it.
+
+## 16. Production Safety Summary
+
+The current codebase remains compatible with the validated production monitoring flows. New modules are additive and optional:
+
+- IIS logging is disabled by default.
+- Network monitoring is disabled by default.
+- Report generation does not mutate monitoring source data.
+- Per-server agent keys keep legacy global key compatibility.
+- Application mapping links monitors without changing monitor checks.
+- Existing metric ingestion remains the central stable path.
+
+The main production hardening work left is operational: queue heavier report work, document Docker dependency updates, add stronger optional API request signing, and introduce explicit application/database mapping for better report attribution.

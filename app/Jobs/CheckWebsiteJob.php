@@ -23,7 +23,14 @@ class CheckWebsiteJob implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public Monitor $monitor, public bool $force = false) {}
+    public int $tries = 3;
+    public int $timeout = 60;
+    public array $backoff = [30, 60, 120];
+
+    public function __construct(public Monitor $monitor, public bool $force = false)
+    {
+        $this->onQueue('checks');
+    }
 
     public function handle()
     {

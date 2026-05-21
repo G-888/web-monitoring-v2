@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -32,8 +33,17 @@ class Application extends Model
     public const RULE_DATABASE_SERVERS = 'database_servers';
 
     protected $fillable = [
-        'name', 'code', 'environment', 'owner_team', 'description', 'status',
+        'client_id', 'name', 'code', 'environment', 'owner_team', 'description', 'status', 'architecture_type', 'technology_stack_json',
     ];
+
+    protected $casts = [
+        'technology_stack_json' => 'array',
+    ];
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
 
     public function servers(): BelongsToMany
     {
@@ -51,6 +61,11 @@ class Application extends Model
     public function componentRules(): HasMany
     {
         return $this->hasMany(ApplicationComponentRule::class);
+    }
+
+    public function networkMonitors(): HasMany
+    {
+        return $this->hasMany(NetworkMonitor::class);
     }
 
     /**

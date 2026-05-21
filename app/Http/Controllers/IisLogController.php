@@ -13,7 +13,7 @@ class IisLogController extends Controller
     {
         $servers = Server::query()
             ->where('is_active', true)
-            ->with('latestIisLogSummary')
+            ->with(['latestIisLogSummary', 'iisLogCollectorStatus'])
             ->orderBy('name')
             ->get()
             ->map(function (Server $server) {
@@ -22,6 +22,7 @@ class IisLogController extends Controller
                 return [
                     'server' => $server,
                     'latest' => $latest,
+                    'collector' => $server->iisLogCollectorStatus,
                 ];
             });
 
@@ -54,6 +55,8 @@ class IisLogController extends Controller
             'suspicious' => $summaries->pluck('suspicious_count')->values(),
         ];
 
-        return view('iis-logs.show', compact('server', 'summaries', 'latest', 'events', 'trend'));
+        $collectorStatus = $server->iisLogCollectorStatus;
+
+        return view('iis-logs.show', compact('server', 'summaries', 'latest', 'events', 'trend', 'collectorStatus'));
     }
 }

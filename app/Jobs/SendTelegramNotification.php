@@ -10,6 +10,10 @@ class SendTelegramNotification implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+    public int $timeout = 30;
+    public array $backoff = [30, 60, 120];
+
     protected string $message;
 
     /**
@@ -17,6 +21,7 @@ class SendTelegramNotification implements ShouldQueue
      */
     public function __construct(string $message)
     {
+        $this->onQueue('alerts');
         $this->message = $message;
     }
 

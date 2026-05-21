@@ -2,6 +2,7 @@ const si = require('systeminformation');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const net = require('net');
 const { execFile } = require('child_process');
 const packageJson = require('./package.json');
 
@@ -14,6 +15,16 @@ class IisLogCollector {
         this.isScanning = false;
         this.timer = null;
         this.state = this.loadState();
+        this.health = {
+            enabled: false,
+            last_scan_at: null,
+            files_seen: 0,
+            files_read: 0,
+            lines_read: 0,
+            summaries_sent: 0,
+            last_error: null,
+            state_file_path: this.statePath(),
+        };
     }
 
     get settings() {
@@ -27,10 +38,17 @@ class IisLogCollector {
             maxLinesPerRun: Number(source.maxLinesPerRun || 5000),
             sendRawSamples: Boolean(source.sendRawSamples),
             sampleLimit: Number(source.sampleLimit || 20),
+            allowlist: {
+                ipAddresses: Array.isArray(source.allowlist?.ipAddresses) ? source.allowlist.ipAddresses.filter(Boolean) : [],
+                urlPathContains: Array.isArray(source.allowlist?.urlPathContains) ? source.allowlist.urlPathContains.filter(Boolean) : [],
+                userAgents: Array.isArray(source.allowlist?.userAgents) ? source.allowlist.userAgents.filter(Boolean) : [],
+            },
         };
     }
 
     start() {
+        this.health.enabled = this.settings.enabled && this.settings.paths.length > 0;
+
         if (!this.settings.enabled || this.settings.paths.length === 0) {
             return;
         }
@@ -63,16 +81,23 @@ class IisLogCollector {
         }
 
         this.isScanning = true;
+        this.health.enabled = this.settings.enabled && this.settings.paths.length > 0;
+        this.health.last_scan_at = new Date().toISOString();
 
         try {
             const summary = await this.collectSummary();
             this.saveState();
+            summary.collector_health = this.healthSnapshot();
 
-            if (summary.lines_scanned > 0 || summary.parser_errors.length > 0) {
-                await this.sendSummary(summary);
+            if (summary.lines_scanned > 0 || summary.parser_errors.length > 0 || summary.collector_health) {
+                const sent = await this.sendSummary(summary);
+                if (sent !== false) {
+                    this.health.summaries_sent++;
+                }
             }
         } catch (error) {
-            this.reportError(`IIS log parsing failed: ${error.message}`);
+            this.recordHealthError(`IIS log parsing failed: ${error.message}`);
+            await this.sendErrorSummary();
         } finally {
             this.isScanning = false;
         }
@@ -111,11 +136,17 @@ class IisLogCollector {
 
     async collectSummary() {
         const settings = this.settings;
+        this.health.files_seen = 0;
+        this.health.files_read = 0;
+        this.health.lines_read = 0;
+        this.health.last_error = null;
+
         const files = this.discoverLogFiles(settings.paths);
         const summary = this.emptySummary();
         let remainingLines = Math.max(1, settings.maxLinesPerRun);
 
         summary.files_scanned = files.length;
+        this.health.files_seen = files.length;
 
         for (const file of files) {
             if (remainingLines <= 0) {
@@ -126,9 +157,13 @@ class IisLogCollector {
                 const result = this.readNewLines(file, remainingLines);
                 remainingLines -= result.lines.length;
                 summary.lines_scanned += result.lines.length;
+                this.health.files_read++;
+                this.health.lines_read += result.lines.length;
                 this.processLines(result.lines, summary, settings, file, result.fields);
             } catch (error) {
-                summary.parser_errors.push(`${file}: ${error.message}`);
+                const message = `${file}: ${error.message}`;
+                summary.parser_errors.push(message);
+                this.recordHealthError(message);
             }
         }
 
@@ -138,6 +173,38 @@ class IisLogCollector {
         delete summary._urlCounts;
 
         return summary;
+    }
+
+    async sendErrorSummary() {
+        try {
+            const summary = this.emptySummary();
+            summary.parser_errors.push(this.health.last_error || 'IIS collector failed');
+            summary.collector_health = this.healthSnapshot();
+            const sent = await this.sendSummary(summary);
+            if (sent !== false) {
+                this.health.summaries_sent++;
+            }
+        } catch (_) {
+            // sendSummary already reports transport failures through the agent error path.
+        }
+    }
+
+    recordHealthError(message) {
+        this.health.last_error = message;
+        this.reportError(message);
+    }
+
+    healthSnapshot() {
+        return {
+            enabled: this.health.enabled,
+            last_scan_at: this.health.last_scan_at,
+            files_seen: this.health.files_seen,
+            files_read: this.health.files_read,
+            lines_read: this.health.lines_read,
+            summaries_sent: this.health.summaries_sent,
+            last_error: this.health.last_error,
+            state_file_path: this.health.state_file_path,
+        };
     }
 
     emptySummary() {
@@ -379,6 +446,10 @@ class IisLogCollector {
     detectSuspicious(row, url) {
         const userAgent = this.decodeIisValue(row['cs(User-Agent)'] || '');
         const rawUrl = `${row['cs-uri-stem'] || ''}?${row['cs-uri-query'] || ''}`;
+        if (this.isAllowlisted(row['c-ip'] || '', url, userAgent)) {
+            return null;
+        }
+
         const haystack = `${url} ${rawUrl} ${userAgent}`.toLowerCase();
         const patterns = [
             'union select',
@@ -412,11 +483,155 @@ class IisLogCollector {
         return null;
     }
 
+    isAllowlisted(ip, url, userAgent) {
+        const allowlist = this.settings.allowlist;
+        const normalizedIp = String(ip || '').toLowerCase();
+        const normalizedUrl = String(url || '').toLowerCase();
+        const normalizedUserAgent = String(userAgent || '').toLowerCase();
+
+        if (allowlist.ipAddresses.some(item => normalizedIp === String(item).trim().toLowerCase())) {
+            return true;
+        }
+
+        if (allowlist.urlPathContains.some(item => {
+            const fragment = String(item).trim().toLowerCase();
+            return fragment !== '' && normalizedUrl.includes(fragment);
+        })) {
+            return true;
+        }
+
+        return allowlist.userAgents.some(item => {
+            const fragment = String(item).trim().toLowerCase();
+            return fragment !== '' && normalizedUserAgent.includes(fragment);
+        });
+    }
+
     topValues(counts, limit) {
         return Array.from(counts.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, limit)
             .map(([value, count]) => ({ value, count }));
+    }
+}
+
+class NetworkCheckRunner {
+    constructor(config, sendResults, reportError) {
+        this.config = config;
+        this.sendResults = sendResults;
+        this.reportError = reportError;
+        this.isRunning = false;
+        this.isChecking = false;
+        this.timer = null;
+    }
+
+    get settings() {
+        const source = this.config.networkChecks || {};
+        const featureEnabled = Boolean(this.config.featureFlags?.networkChecks);
+
+        return {
+            enabled: Boolean(source.enabled || featureEnabled),
+            scanIntervalSeconds: Number(source.scanIntervalSeconds || 60),
+            timeoutMs: Number(source.timeoutMs || 3000),
+            maxChecksPerRun: Number(source.maxChecksPerRun || 50),
+            checks: Array.isArray(source.checks) ? source.checks.filter(Boolean) : [],
+        };
+    }
+
+    start() {
+        const settings = this.settings;
+        if (!settings.enabled || settings.checks.length === 0) {
+            return;
+        }
+
+        this.isRunning = true;
+        this.schedule(1500);
+    }
+
+    stop() {
+        this.isRunning = false;
+        if (this.timer) {
+            clearTimeout(this.timer);
+        }
+    }
+
+    schedule(delayMs) {
+        if (!this.isRunning) {
+            return;
+        }
+
+        this.timer = setTimeout(async () => {
+            await this.runOnce();
+            this.schedule(Math.max(10, this.settings.scanIntervalSeconds) * 1000);
+        }, delayMs);
+    }
+
+    async runOnce() {
+        if (this.isChecking) {
+            return;
+        }
+
+        this.isChecking = true;
+
+        try {
+            const checks = this.settings.checks.slice(0, this.settings.maxChecksPerRun);
+            const results = [];
+
+            for (const check of checks) {
+                if (String(check.type || '') !== 'tcp_port') {
+                    continue;
+                }
+
+                results.push(await this.checkTcp(check));
+            }
+
+            if (results.length > 0) {
+                await this.sendResults(results);
+            }
+        } catch (error) {
+            this.reportError(`Network checks failed: ${error.message}`);
+        } finally {
+            this.isChecking = false;
+        }
+    }
+
+    checkTcp(check) {
+        return new Promise(resolve => {
+            const startedAt = Date.now();
+            const timeoutMs = Number(check.timeoutMs || this.settings.timeoutMs || 3000);
+            const expectedState = check.expectedState || 'open';
+            const socket = new net.Socket();
+            let settled = false;
+
+            const finish = (isOpen, error = null) => {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+                socket.destroy();
+
+                const latencyMs = Date.now() - startedAt;
+                const expectedOpen = expectedState !== 'closed';
+                const isSuccessful = expectedOpen ? isOpen : !isOpen;
+
+                resolve({
+                    monitor_id: check.id,
+                    status: isSuccessful ? 'up' : (isOpen ? 'unexpected_open' : 'down'),
+                    is_successful: isSuccessful,
+                    latency_ms: latencyMs,
+                    resolved_value: isOpen ? 'open' : 'closed',
+                    expected_value: expectedState,
+                    error: isSuccessful ? null : (isOpen ? 'Port is open but expected closed.' : (error || 'Connection failed.')),
+                    checked_at: new Date().toISOString(),
+                });
+            };
+
+            socket.setTimeout(timeoutMs);
+            socket.once('connect', () => finish(true));
+            socket.once('timeout', () => finish(false, 'Connection timed out.'));
+            socket.once('error', error => finish(false, error.message));
+            socket.connect(Number(check.targetPort), String(check.targetHost));
+        });
     }
 }
 
@@ -427,10 +642,16 @@ class ServerMonitorAgent {
         this.remoteWindowsServices = [];
         this.pendingCommandResults = [];
         this.lastIisLogError = null;
+        this.lastNetworkCheckError = null;
         this.iisLogCollector = new IisLogCollector(
             this.config,
             summary => this.sendIisLogSummary(summary),
             message => this.recordIisLogError(message)
+        );
+        this.networkCheckRunner = new NetworkCheckRunner(
+            this.config,
+            results => this.sendNetworkCheckResults(results),
+            message => this.recordNetworkCheckError(message)
         );
     }
 
@@ -476,7 +697,9 @@ class ServerMonitorAgent {
                 ),
                 windowsServiceDiscoveryLimit: Number(process.env.SERVER_MONITOR_WINDOWS_SERVICE_DISCOVERY_LIMIT || fileConfig.windowsServiceDiscoveryLimit || 50),
                 agentVersion: process.env.SERVER_MONITOR_AGENT_VERSION || fileConfig.agentVersion || packageJson.version,
+                featureFlags: fileConfig.featureFlags || {},
                 iisLogs: this.parseIisLogsConfig(fileConfig.iisLogs || {}),
+                networkChecks: this.parseNetworkChecksConfig(fileConfig.networkChecks || {}, fileConfig.featureFlags || {}),
             };
 
             if (!config.serverId || !config.apiUrl || !config.apiKey) {
@@ -551,7 +774,8 @@ class ServerMonitorAgent {
                 disk_total: hasDiskMetrics ? Math.round((diskUsage.size / (1024 ** 3)) * 100) / 100 : 0.01, // GB
                 timestamp: new Date().toISOString(),
                 agent_version: this.config.agentVersion,
-                last_agent_error: this.lastIisLogError,
+                capabilities: this.agentCapabilities(),
+                last_agent_error: [this.lastIisLogError, this.lastNetworkCheckError].filter(Boolean).join(' | ') || null,
                 services,
                 command_results: this.pendingCommandResults
             };
@@ -593,6 +817,20 @@ class ServerMonitorAgent {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    agentCapabilities() {
+        const capabilities = ['systemMetrics', 'windowsServices'];
+
+        if (this.config.iisLogs?.enabled) {
+            capabilities.push('iisLogs');
+        }
+
+        if (this.config.networkChecks?.enabled || this.config.featureFlags?.networkChecks) {
+            capabilities.push('networkChecks');
+        }
+
+        return capabilities;
+    }
+
     parseWindowsServices(envValue, fileValue) {
         if (envValue) {
             return envValue.split(',').map(service => service.trim()).filter(Boolean);
@@ -611,6 +849,7 @@ class ServerMonitorAgent {
 
     parseIisLogsConfig(fileValue) {
         const paths = this.parseWindowsServices(process.env.SERVER_MONITOR_IIS_LOG_PATHS, fileValue.paths || ['C:/inetpub/logs/LogFiles']);
+        const allowlist = fileValue.allowlist || {};
 
         return {
             enabled: this.parseBoolean(process.env.SERVER_MONITOR_IIS_LOGS_ENABLED, fileValue.enabled ?? false),
@@ -621,6 +860,21 @@ class ServerMonitorAgent {
             sendRawSamples: this.parseBoolean(process.env.SERVER_MONITOR_IIS_LOG_SEND_RAW_SAMPLES, fileValue.sendRawSamples ?? false),
             sampleLimit: Number(process.env.SERVER_MONITOR_IIS_LOG_SAMPLE_LIMIT || fileValue.sampleLimit || 20),
             statePath: process.env.SERVER_MONITOR_IIS_LOG_STATE_PATH || fileValue.statePath,
+            allowlist: {
+                ipAddresses: this.parseWindowsServices(process.env.SERVER_MONITOR_IIS_LOG_ALLOWLIST_IPS, allowlist.ipAddresses || allowlist.ip_addresses || []),
+                urlPathContains: this.parseWindowsServices(process.env.SERVER_MONITOR_IIS_LOG_ALLOWLIST_URL_CONTAINS, allowlist.urlPathContains || allowlist.url_path_contains || []),
+                userAgents: this.parseWindowsServices(process.env.SERVER_MONITOR_IIS_LOG_ALLOWLIST_USER_AGENTS, allowlist.userAgents || allowlist.user_agents || []),
+            },
+        };
+    }
+
+    parseNetworkChecksConfig(fileValue, featureFlags) {
+        return {
+            enabled: this.parseBoolean(process.env.SERVER_MONITOR_NETWORK_CHECKS_ENABLED, fileValue.enabled ?? featureFlags.networkChecks ?? false),
+            scanIntervalSeconds: Number(process.env.SERVER_MONITOR_NETWORK_CHECK_INTERVAL_SECONDS || fileValue.scanIntervalSeconds || 60),
+            timeoutMs: Number(process.env.SERVER_MONITOR_NETWORK_CHECK_TIMEOUT_MS || fileValue.timeoutMs || 3000),
+            maxChecksPerRun: Number(process.env.SERVER_MONITOR_NETWORK_CHECK_MAX_CHECKS_PER_RUN || fileValue.maxChecksPerRun || 50),
+            checks: Array.isArray(fileValue.checks) ? fileValue.checks : [],
         };
     }
 
@@ -638,9 +892,11 @@ class ServerMonitorAgent {
             });
             this.lastIisLogError = null;
             console.log(`IIS log summary sent: ${summary.total_requests} requests, ${summary.suspicious_count} suspicious`);
+            return true;
         } catch (error) {
             const status = error.response ? `HTTP ${error.response.status}` : error.message;
             this.recordIisLogError(`IIS log summary send failed: ${status}`);
+            return false;
         }
     }
 
@@ -654,6 +910,44 @@ class ServerMonitorAgent {
 
     recordIisLogError(message) {
         this.lastIisLogError = message;
+        console.warn(message);
+    }
+
+    async sendNetworkCheckResults(results) {
+        const endpoint = this.networkCheckResultsUrl();
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-API-Key': this.config.apiKey
+        };
+
+        try {
+            await axios.post(endpoint, {
+                server_id: this.config.serverId,
+                results
+            }, {
+                headers,
+                timeout: this.config.requestTimeoutMs
+            });
+            this.lastNetworkCheckError = null;
+            console.log(`Network check results sent: ${results.length}`);
+            return true;
+        } catch (error) {
+            const status = error.response ? `HTTP ${error.response.status}` : error.message;
+            this.recordNetworkCheckError(`Network check results send failed: ${status}`);
+            return false;
+        }
+    }
+
+    networkCheckResultsUrl() {
+        if (this.config.networkChecks?.apiUrl) {
+            return this.config.networkChecks.apiUrl;
+        }
+
+        return String(this.config.apiUrl).replace(/\/api\/metrics\/?$/, '/api/network-checks/results');
+    }
+
+    recordNetworkCheckError(message) {
+        this.lastNetworkCheckError = message;
         console.warn(message);
     }
 
@@ -883,6 +1177,7 @@ class ServerMonitorAgent {
 
         this.isRunning = true;
         this.iisLogCollector.start();
+        this.networkCheckRunner.start();
 
         while (this.isRunning) {
             try {
@@ -909,6 +1204,7 @@ class ServerMonitorAgent {
         console.log('Stopping Server Monitor Agent...');
         this.isRunning = false;
         this.iisLogCollector.stop();
+        this.networkCheckRunner.stop();
     }
 }
 

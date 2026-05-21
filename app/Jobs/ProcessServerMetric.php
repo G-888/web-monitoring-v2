@@ -17,6 +17,10 @@ class ProcessServerMetric implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+    public int $timeout = 30;
+    public array $backoff = [10, 30, 60];
+
     public array $metricData;
 
     /**
@@ -24,6 +28,7 @@ class ProcessServerMetric implements ShouldQueue
      */
     public function __construct(array $metricData)
     {
+        $this->onQueue('metrics');
         $this->metricData = $metricData;
     }
 

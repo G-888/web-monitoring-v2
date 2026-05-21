@@ -11,6 +11,15 @@ class CheckServerHeartbeats implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+    public int $timeout = 30;
+    public array $backoff = [30, 60, 120];
+
+    public function __construct()
+    {
+        $this->onQueue('alerts');
+    }
+
     public function handle(ServerAlertService $alerts): void
     {
         Server::query()

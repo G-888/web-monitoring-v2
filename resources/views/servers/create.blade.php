@@ -79,28 +79,28 @@
                             type="checkbox"
                             name="is_active"
                             value="1"
-                            class="rounded border-white/10 bg-white/5 text-blue-500 focus:ring-blue-500"
+                            class="rounded border-slate-300 bg-white text-blue-500 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5"
                             {{ old('is_active', true) ? 'checked' : '' }}
                         />
-                        <span class="text-sm text-slate-200">Enable server in inventory</span>
+                        <span class="text-sm text-slate-700 dark:text-slate-200">Enable server in inventory</span>
                     </label>
                 </div>
 
-                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h3 class="text-sm font-semibold text-slate-100">Threshold Alerts</h3>
-                            <p class="mt-1 text-xs text-slate-400">Alerts are sent to active Super Admin alert channels.</p>
+                            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Threshold Alerts</h3>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Alerts are sent to active Super Admin alert channels.</p>
                         </div>
                         <label class="flex items-center gap-2">
                             <input
                                 type="checkbox"
                                 name="alerts_enabled"
                                 value="1"
-                                class="rounded border-white/10 bg-white/5 text-blue-500 focus:ring-blue-500"
+                                class="rounded border-slate-300 bg-white text-blue-500 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5"
                                 {{ old('alerts_enabled', true) ? 'checked' : '' }}
                             />
-                            <span class="text-sm text-slate-200">Enable alerts</span>
+                            <span class="text-sm text-slate-700 dark:text-slate-200">Enable alerts</span>
                         </label>
                     </div>
 
@@ -136,9 +136,9 @@
                     </div>
                 </div>
 
-                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-                    <h3 class="text-sm font-semibold text-slate-100">Maintenance window</h3>
-                    <p class="mt-1 text-xs text-slate-400">When active, alerts are suppressed and website incidents are excluded from history.</p>
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Maintenance window</h3>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">When active, alerts are suppressed and website incidents are excluded from history.</p>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
                         <div class="space-y-2">
                             <x-input-label for="maintenance_starts_at" :value="__('Starts at')" />
@@ -154,7 +154,7 @@
                 </div>
 
                 <div class="flex items-center justify-between gap-3 pt-2">
-                    <a href="{{ route('servers.index') }}" class="inline-flex items-center justify-center rounded border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">
+                    <a href="{{ route('servers.index') }}" class="inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10">
                         Cancel
                     </a>
                     <x-primary-button>

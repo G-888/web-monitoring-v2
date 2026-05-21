@@ -23,11 +23,16 @@
                     <thead class="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500 dark:bg-[#07131f] dark:text-slate-400">
                         <tr>
                             <th class="px-4 py-3">Server</th>
+                            <th class="px-4 py-3">Collector</th>
+                            <th class="px-4 py-3">Last Scan</th>
+                            <th class="px-4 py-3">Files Seen</th>
+                            <th class="px-4 py-3">Lines Read</th>
                             <th class="px-4 py-3">Requests</th>
                             <th class="px-4 py-3">404</th>
                             <th class="px-4 py-3">500</th>
                             <th class="px-4 py-3">Suspicious</th>
                             <th class="px-4 py-3">Last Check</th>
+                            <th class="px-4 py-3">Last Error</th>
                             <th class="px-4 py-3">Actions</th>
                         </tr>
                     </thead>
@@ -36,18 +41,36 @@
                             @php
                                 $server = $row['server'];
                                 $latest = $row['latest'];
+                                $collector = $row['collector'];
                             @endphp
                             <tr class="hover:bg-slate-50 dark:hover:bg-white/5">
                                 <td class="px-4 py-4">
                                     <div class="font-semibold text-slate-900 dark:text-white">{{ $server->name }}</div>
                                     <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ $server->server_id }}</div>
                                 </td>
+                                <td class="px-4 py-4">
+                                    @if($collector?->enabled)
+                                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">Enabled</span>
+                                    @else
+                                        <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-white/5 dark:text-slate-300">Disabled</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4 text-slate-600 dark:text-slate-300">{{ $collector?->last_scan_at?->diffForHumans() ?? 'No scan' }}</td>
+                                <td class="px-4 py-4 text-slate-600 dark:text-slate-300">{{ number_format((int) ($collector?->files_seen ?? 0)) }}</td>
+                                <td class="px-4 py-4 text-slate-600 dark:text-slate-300">{{ number_format((int) ($collector?->lines_read ?? 0)) }}</td>
                                 <td class="px-4 py-4 font-semibold text-slate-900 dark:text-white">{{ number_format((int) ($latest?->total_requests ?? 0)) }}</td>
                                 <td class="px-4 py-4 text-amber-600 dark:text-amber-300">{{ number_format((int) ($latest?->http_404 ?? 0)) }}</td>
                                 <td class="px-4 py-4 text-red-600 dark:text-red-300">{{ number_format((int) ($latest?->http_500 ?? 0)) }}</td>
                                 <td class="px-4 py-4 text-orange-600 dark:text-orange-300">{{ number_format((int) ($latest?->suspicious_count ?? 0)) }}</td>
                                 <td class="px-4 py-4 text-slate-600 dark:text-slate-300">
                                     {{ $latest?->window_end?->diffForHumans() ?? $latest?->created_at?->diffForHumans() ?? 'No IIS summary' }}
+                                </td>
+                                <td class="max-w-xs px-4 py-4">
+                                    @if($collector?->last_error)
+                                        <span class="text-xs text-red-600 dark:text-red-300" title="{{ $collector->last_error }}">{{ Str::limit($collector->last_error, 90) }}</span>
+                                    @else
+                                        <span class="text-xs text-slate-500 dark:text-slate-400">Clear</span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-4">
                                     <a href="{{ route('iis-logs.show', $server) }}" class="inline-flex items-center justify-center rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500">
@@ -57,7 +80,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-4 py-12 text-center text-slate-500 dark:text-slate-400">No active servers found.</td>
+                                <td colspan="12" class="px-4 py-12 text-center text-slate-500 dark:text-slate-400">No active servers found.</td>
                             </tr>
                         @endforelse
                     </tbody>

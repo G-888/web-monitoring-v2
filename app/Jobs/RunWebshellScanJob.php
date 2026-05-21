@@ -12,8 +12,13 @@ class RunWebshellScanJob implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+    public int $timeout = 180;
+    public array $backoff = [60, 120, 300];
+
     public function __construct(public ?string $path = null, public string $source = 'scheduled')
     {
+        $this->onQueue('security');
     }
 
     public function handle(WebshellScannerService $service): void

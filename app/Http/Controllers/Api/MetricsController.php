@@ -16,6 +16,10 @@ class MetricsController extends Controller
 {
     public function store(Request $request, AgentDeploymentService $deployment): JsonResponse
     {
+        if (! $this->payloadWithinLimit($request, (int) config('agent.ingest_limits.metrics_max_bytes', 262144))) {
+            return response()->json(['error' => 'Payload too large'], 413);
+        }
+
         $apiKey = $request->header('X-API-Key');
         if (!$apiKey) {
             return response()->json(['error' => 'Unauthorized'], 401);
@@ -55,7 +59,9 @@ class MetricsController extends Controller
         $serverId = $validated['server_id'];
         $cacheKey = "metrics_rate_limit_{$serverId}";
 
-        if (RateLimiter::tooManyAttempts($cacheKey, 12)) {
+        $maxAttempts = (int) config('agent.rate_limits.metrics_per_minute', 12);
+
+        if (RateLimiter::tooManyAttempts($cacheKey, $maxAttempts)) {
             return response()->json(['error' => 'Rate limit exceeded'], 429);
         }
 
@@ -64,6 +70,7 @@ class MetricsController extends Controller
         $server = Server::where('server_id', $serverId)->first();
 
         if (! $this->validateApiKey($apiKey, $server, $deployment)) {
+            $this->logFailedAuthentication($request, $serverId, (bool) $server);
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -112,11 +119,27 @@ class MetricsController extends Controller
 
         $expectedKey = config('services.agent.key');
 
-        if (empty($expectedKey)) {
+        if (! config('agent.global_api_key_enabled', true) || empty($expectedKey)) {
             return false;
         }
 
         return hash_equals($expectedKey, $apiKey);
+    }
+
+    private function payloadWithinLimit(Request $request, int $maxBytes): bool
+    {
+        $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
+
+        return $maxBytes <= 0 || $contentLength <= 0 || $contentLength <= $maxBytes;
+    }
+
+    private function logFailedAuthentication(Request $request, string $serverId, bool $serverExists): void
+    {
+        Log::warning('Agent metrics authentication failed', [
+            'server_id' => $serverId,
+            'server_exists' => $serverExists,
+            'ip' => $request->ip(),
+        ]);
     }
 
     private function registerServerFromAgent(array $validated): Server

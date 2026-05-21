@@ -15,6 +15,8 @@ class WindowsServiceCommand extends Model
     protected $fillable = [
         'server_id',
         'windows_service_id',
+        'requested_by',
+        'request_ip',
         'service_name',
         'action',
         'status',

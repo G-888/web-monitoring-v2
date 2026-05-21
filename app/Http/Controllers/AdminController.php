@@ -115,8 +115,13 @@ class AdminController extends Controller
 
     public function editPermissions(User $user): View
     {
+        foreach (['module.reports.view', 'module.reports.generate', 'module.reports.download', 'module.network_monitoring', 'module.agent_deployment'] as $permission) {
+            \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $permission]);
+        }
+
         $permissions = \Spatie\Permission\Models\Permission::all()->groupBy(function($perm) {
-            if (str_starts_with($perm->name, 'module.service_control')) return 'Privileged Controls';
+            if (str_starts_with($perm->name, 'module.reports.')) return 'Reports';
+            if (str_starts_with($perm->name, 'module.service_control') || str_starts_with($perm->name, 'module.agent_deployment')) return 'Privileged Controls';
             if (str_starts_with($perm->name, 'module.')) return 'Modules & Features';
             if (str_contains($perm->name, 'monitor')) return 'Monitors';
             if (str_contains($perm->name, 'log')) return 'Logs & Analysis';
@@ -244,7 +249,15 @@ class AdminController extends Controller
             $telegramSetting = new TelegramSetting();
         }
 
-        $telegramSetting->fill($request->only(['bot_token', 'chat_id', 'is_active']));
+        $data = [
+            'chat_id' => $request->input('chat_id'),
+            'is_active' => $request->boolean('is_active'),
+        ];
+        if ($request->filled('bot_token')) {
+            $data['bot_token'] = $request->input('bot_token');
+        }
+
+        $telegramSetting->fill($data);
         $telegramSetting->save();
 
         return back()->with('success', 'Telegram settings updated successfully.');
@@ -270,10 +283,10 @@ class AdminController extends Controller
         if ($result['success']) {
             return back()
                 ->with('success', $result['message'])
-                ->withInput(['bot_token' => $request->bot_token, 'chat_id' => $result['chat_id']]);
+                ->withInput(['chat_id' => $result['chat_id']]);
         }
 
-        return back()->with('error', $result['message'])->withInput(['bot_token' => $request->bot_token]);
+        return back()->with('error', $result['message']);
     }
 
     public function clearTelegramUpdates(Request $request): RedirectResponse
@@ -296,7 +309,7 @@ class AdminController extends Controller
 
         return back()
             ->with($result['success'] ? 'success' : 'error', $result['message'])
-            ->withInput(['bot_token' => $request->bot_token, 'chat_id' => old('chat_id')]);
+            ->withInput(['chat_id' => old('chat_id')]);
     }
 
     public function testTelegramSettings(): RedirectResponse

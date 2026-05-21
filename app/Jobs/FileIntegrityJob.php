@@ -17,8 +17,14 @@ class FileIntegrityJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $tries = 3;
+    public int $timeout = 180;
+    public array $backoff = [60, 120, 300];
+
     public function __construct(protected ?Monitor $monitor = null)
-    {}
+    {
+        $this->onQueue('security');
+    }
 
     public function handle(FileIntegrityService $service): void
     {

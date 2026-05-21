@@ -7,6 +7,11 @@
     @endphp
 
     <div class="max-w-7xl mx-auto space-y-8 pb-20 px-4 pt-4">
+        @if(session('success'))
+            <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm font-bold text-emerald-300">
+                {{ session('success') }}
+            </div>
+        @endif
         
         <!-- Header & Quick Scan -->
         <div class="flex flex-col gap-6 bg-slate-900 p-8 rounded-[2rem] border border-white/5 shadow-2xl">
@@ -224,6 +229,13 @@
                 </h2>
                 <div class="flex items-center gap-4">
                     <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">{{ $monitors->count() }} ACTIVE NODES</span>
+                    <form action="{{ route('seo-security.scan-all') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-600/20 transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50" @disabled($monitors->isEmpty())>
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Scan All
+                        </button>
+                    </form>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -244,7 +256,7 @@
                                 <div class="text-xs text-slate-500 font-mono mt-1">{{ $monitor->url }}</div>
                             </td>
                             <td class="px-8 py-6 text-center">
-                                @php $latestScan = $recentScans->where('monitor_id', $monitor->id)->first(); @endphp
+                                @php $latestScan = $latestScansByMonitor->get($monitor->id); @endphp
                                 @if($latestScan)
                                     <span class="inline-block px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest {{ $latestScan->status === 'clean' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white' }}">
                                         {{ strtoupper($latestScan->status) }}

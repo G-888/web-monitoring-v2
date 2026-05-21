@@ -34,7 +34,21 @@
         </div>
 
         @if(session('manual_asset_result'))
-            @php $res = session('manual_asset_result'); @endphp
+            @php
+                $res = session('manual_asset_result');
+                $edgeGeo = $res['edge_geo'] ?? collect($res['dns'])->first(fn ($record) => isset($record['geo']))['geo'] ?? null;
+                $edgePoints = collect($res['dns'])
+                    ->filter(fn ($record) => isset($record['geo']['lat'], $record['geo']['lon']))
+                    ->map(fn ($record) => [
+                        'ip' => $record['ip'] ?? $record['target'] ?? 'Unknown IP',
+                        'country' => $record['geo']['country'] ?? 'Unknown',
+                        'city' => $record['geo']['city'] ?? 'Unknown',
+                        'provider' => $record['geo']['isp'] ?? $record['geo']['org'] ?? 'Unknown provider',
+                        'lat' => (float) $record['geo']['lat'],
+                        'lon' => (float) $record['geo']['lon'],
+                    ])
+                    ->values();
+            @endphp
             <div class="grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 
                 <!-- 1. AI Security Grade (Bento) -->
@@ -64,20 +78,24 @@
                 <!-- 2. Global Threat Map (Bento) -->
                 <div class="col-span-12 lg:col-span-6">
                     <div class="bg-slate-900 rounded-[2rem] border border-white/5 h-[450px] overflow-hidden relative shadow-2xl">
-                        <div id="map" class="h-full w-full grayscale-[0.8] brightness-[0.7] contrast-[1.2]"></div>
-                        <div class="absolute bottom-4 left-4 z-[1000] p-4 bg-slate-950/80 backdrop-blur rounded-2xl border border-white/5">
-                            <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Geo-Intelligence</div>
-                            <div class="flex items-center gap-4">
-                                @foreach($res['dns'] as $record)
-                                    @if(isset($record['geo']))
-                                        <div class="text-[10px] text-white font-bold">
-                                            <span class="text-blue-400 mr-1">{{ $record['geo']['country'] ?? '' }}</span>
-                                            {{ $record['geo']['city'] ?? '' }}
-                                        </div>
-                                        @break
-                                    @endif
-                                @endforeach
+                        <div id="map" class="h-full w-full"></div>
+                        <div class="absolute bottom-4 left-4 z-[1000] max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-4 text-slate-900 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-950/90 dark:text-white">
+                            <div class="mb-2 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                                {{ ($res['cdn_detected'] ?? false) ? 'Public Edge Location' : 'Geo-Intelligence' }}
                             </div>
+                            <div class="text-[11px] font-black">
+                                @if($edgeGeo)
+                                    <span class="text-blue-600 dark:text-blue-400">{{ $edgeGeo['country'] ?? 'Unknown country' }}</span>
+                                    {{ $edgeGeo['city'] ?? 'Unknown city' }}
+                                @else
+                                    Location unavailable
+                                @endif
+                            </div>
+                            @if($res['cdn_detected'] ?? false)
+                                <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                                    {{ $res['cdn_provider'] }} CDN/WAF detected. This map shows public edge IP geolocation; origin location is hidden.
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -92,15 +110,35 @@
                                 <div class="mt-4 flex flex-wrap gap-2">
                                     <span class="px-3 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-black uppercase">{{ $res['fingerprint']['server'] ?? 'Unknown' }}</span>
                                     <span class="px-3 py-1 rounded-lg bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase">{{ $res['fingerprint']['cms'] ?? 'Custom' }}</span>
+                                    @if($res['cdn_detected'] ?? false)
+                                        <span class="px-3 py-1 rounded-lg bg-amber-500/10 text-amber-300 text-[10px] font-black uppercase">Origin hidden</span>
+                                    @endif
                                 </div>
                             </div>
                             <div class="space-y-4">
+                                @if($res['cdn_detected'] ?? false)
+                                    <div class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/15 space-y-2">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[9px] font-bold text-slate-500 uppercase">CDN / WAF</span>
+                                            <span class="text-[10px] text-amber-300 font-black">{{ $res['cdn_provider'] }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[9px] font-bold text-slate-500 uppercase">Origin Geo</span>
+                                            <span class="text-[10px] text-amber-300 font-black">Hidden</span>
+                                        </div>
+                                        <div class="text-[9px] font-semibold leading-relaxed text-slate-500">Resolved GeoIP belongs to the CDN edge, not necessarily the hosting origin.</div>
+                                    </div>
+                                @endif
                                 @foreach($res['dns'] as $record)
                                     @if(isset($record['geo']))
                                         <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
                                             <div class="flex items-center justify-between">
-                                                <span class="text-[9px] font-bold text-slate-600 uppercase">Provider</span>
+                                                <span class="text-[9px] font-bold text-slate-600 uppercase">{{ ($res['cdn_detected'] ?? false) ? 'Edge Provider' : 'Provider' }}</span>
                                                 <span class="text-[10px] text-white font-black truncate max-w-[120px]">{{ $record['geo']['isp'] ?? 'Unknown' }}</span>
+                                            </div>
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-[9px] font-bold text-slate-600 uppercase">{{ ($res['cdn_detected'] ?? false) ? 'Edge Geo' : 'Geo' }}</span>
+                                                <span class="text-[10px] text-white font-black truncate max-w-[120px]">{{ $record['geo']['city'] ?? 'Unknown' }}, {{ $record['geo']['country'] ?? 'Unknown' }}</span>
                                             </div>
                                             <div class="flex items-center justify-between">
                                                 <span class="text-[9px] font-bold text-slate-600 uppercase">AS Number</span>
@@ -134,9 +172,12 @@
 
                 <div class="col-span-12 lg:col-span-8 bg-slate-900 rounded-[2rem] p-8 border border-red-500/10">
                     <div class="text-[10px] font-black text-red-500 uppercase tracking-widest mb-6 flex items-center justify-between">
-                        <span>Vulnerability Discovery</span>
-                        <span class="px-2 py-0.5 bg-red-600 text-white text-[8px] rounded font-black">LIVE AUDIT</span>
+                        <span>Public Exposure Check</span>
+                        <span class="px-2 py-0.5 bg-red-600 text-white text-[8px] rounded font-black">SENSITIVE PATHS</span>
                     </div>
+                    <p class="mb-5 text-[11px] font-semibold leading-relaxed text-slate-500">
+                        Checks a small set of public paths for exposed environment files, Git config, phpinfo output, and reachable admin surfaces.
+                    </p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         @forelse(($res['vulnerabilities'] ?? []) as $vuln)
                             <div class="p-4 rounded-2xl bg-red-500/5 border border-red-500/10 flex items-start justify-between gap-4">
@@ -144,10 +185,12 @@
                                     <div class="text-[10px] text-white font-mono">{{ $vuln['path'] }}</div>
                                     <div class="text-[9px] text-slate-500 mt-1 uppercase font-black tracking-widest">{{ $vuln['description'] }}</div>
                                 </div>
-                                <span class="text-[9px] font-black text-red-500 px-2 py-1 bg-red-500/10 rounded">{{ $vuln['status'] }}</span>
+                                <span class="text-[9px] font-black {{ ($vuln['severity'] ?? 'CRITICAL') === 'CRITICAL' ? 'text-red-500 bg-red-500/10' : (($vuln['severity'] ?? '') === 'WARNING' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10') }} px-2 py-1 rounded">
+                                    {{ $vuln['severity'] ?? $vuln['status'] }}
+                                </span>
                             </div>
                         @empty
-                            <div class="col-span-2 text-center py-10 text-[11px] text-slate-600 italic font-medium">No critical file leaks detected in the public surface.</div>
+                            <div class="col-span-2 text-center py-10 text-[11px] text-slate-600 italic font-medium">No sensitive public exposures detected in the checked paths.</div>
                         @endforelse
                     </div>
                 </div>
@@ -198,25 +241,36 @@ graph LR
             <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
+                    const edgePoints = @json($edgePoints);
                     var map = L.map('map', {
-                        zoomControl: false,
+                        zoomControl: true,
                         attributionControl: false
                     }).setView([20, 0], 2);
 
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                         maxZoom: 19
                     }).addTo(map);
 
-                    @foreach($res['dns'] as $record)
-                        @if(isset($record['geo']['lat']) && isset($record['geo']['lon']))
-                            L.circleMarker([{{ $record['geo']['lat'] }}, {{ $record['geo']['lon'] }}], {
-                                radius: 8,
-                                fillOpacity: 0.8,
-                                color: '#3b82f6',
-                                fillColor: '#3b82f6'
-                            }).addTo(map).bindPopup("<div class='text-xs font-bold text-slate-900'>IP: {{ $record['ip'] }}<br>{{ $record['geo']['city'] }}, {{ $record['geo']['country'] }}</div>");
-                        @endif
-                    @endforeach
+                    const bounds = [];
+                    edgePoints.forEach((point) => {
+                        const marker = L.circleMarker([point.lat, point.lon], {
+                            radius: 10,
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.88,
+                            color: '#ffffff',
+                            fillColor: '#2563eb'
+                        }).addTo(map);
+
+                        marker.bindPopup(`<div class="text-xs font-bold text-slate-900">IP: ${point.ip}<br>${point.city}, ${point.country}<br>${point.provider}</div>`);
+                        bounds.push([point.lat, point.lon]);
+                    });
+
+                    if (bounds.length === 1) {
+                        map.setView(bounds[0], 5);
+                    } else if (bounds.length > 1) {
+                        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
+                    }
                 });
             </script>
         @endif
@@ -259,6 +313,7 @@ graph LR
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
         .mermaid { background: transparent !important; }
-        .leaflet-container { background: #0b0e14 !important; }
+        .leaflet-container { background: #dbeafe !important; }
+        .leaflet-control-zoom a { color: #0f172a !important; }
     </style>
 </x-app-layout>

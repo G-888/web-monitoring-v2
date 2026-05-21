@@ -51,7 +51,10 @@
                             <th class="px-4 py-3">Version</th>
                             <th class="px-4 py-3">Runtime</th>
                             <th class="px-4 py-3">Applications</th>
+                            <th class="px-4 py-3">Profile</th>
+                            <th class="px-4 py-3">Modules</th>
                             <th class="px-4 py-3">Capabilities</th>
+                            <th class="px-4 py-3">IIS Logs</th>
                             <th class="px-4 py-3">Services</th>
                             <th class="px-4 py-3">Last Error</th>
                             <th class="px-4 py-3">Actions</th>
@@ -74,6 +77,9 @@
                                     default => 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300',
                                 };
                                 $capabilities = collect($server->capabilities ?? [])->filter()->values();
+                                $iisLogsEnabled = (bool) ($server->iisLogCollectorStatus?->enabled ?? $capabilities->contains('iisLogs'));
+                                $agentProfile = app(\App\Services\AgentDeploymentService::class)->profile($server);
+                                $enabledModules = collect($agentProfile['enabledModules'] ?? [])->values();
                             @endphp
                             <tr class="hover:bg-slate-50 dark:hover:bg-white/5">
                                 <td class="px-4 py-4">
@@ -114,6 +120,22 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-4">
+                                    <div class="font-semibold text-slate-900 dark:text-white">{{ $agentProfile['profile_name'] }}</div>
+                                    <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        {{ filled($agentProfile['roles']) ? implode(', ', $agentProfile['roles']) : 'No mapped roles' }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <div class="flex max-w-56 flex-wrap gap-1.5">
+                                        @foreach($enabledModules->take(5) as $module)
+                                            <span class="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">{{ $module }}</span>
+                                        @endforeach
+                                        @if($enabledModules->count() > 5)
+                                            <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">+{{ $enabledModules->count() - 5 }}</span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4">
                                     @if($capabilities->isEmpty())
                                         <span class="text-xs text-slate-500 dark:text-slate-400">None reported</span>
                                     @else
@@ -125,6 +147,14 @@
                                                 <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">+{{ $capabilities->count() - 4 }}</span>
                                             @endif
                                         </div>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4">
+                                    @if($iisLogsEnabled)
+                                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">Enabled</span>
+                                        <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $server->iisLogCollectorStatus?->last_scan_at?->diffForHumans() ?? 'Awaiting scan' }}</div>
+                                    @else
+                                        <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-white/5 dark:text-slate-300">Disabled</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-4 text-slate-600 dark:text-slate-300">
@@ -143,7 +173,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                                <td colspan="12" class="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                                     No servers are registered yet. Add a server to generate its first agent config.
                                 </td>
                             </tr>
@@ -153,15 +183,4 @@
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('click', function (event) {
-            const button = event.target.closest('[data-copy-text]');
-            if (!button) {
-                return;
-            }
-
-            navigator.clipboard.writeText(button.dataset.copyText || '');
-        });
-    </script>
 </x-app-layout>

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Monitor;
 use App\Models\SeoDiscoveredPage;
 use App\Services\CrawlerService;
+use App\Services\OutboundScanGuard;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,11 +18,28 @@ class InternalCrawlJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(protected Monitor $monitor)
-    {}
+    public int $tries = 3;
+    public int $timeout = 180;
+    public array $backoff = [60, 120, 300];
 
-    public function handle(CrawlerService $service): void
+    public function __construct(protected Monitor $monitor)
     {
+        $this->onQueue('security');
+    }
+
+    public function handle(CrawlerService $service, OutboundScanGuard $scanGuard): void
+    {
+        try {
+            $scanGuard->assertAllowed($this->monitor->url);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('Internal crawl blocked by outbound scan policy.', [
+                'monitor_id' => $this->monitor->id,
+                'url' => $this->monitor->url,
+            ]);
+
+            return;
+        }
+
         $links = $service->discoverLinks($this->monitor->url);
 
         foreach ($links as $link) {

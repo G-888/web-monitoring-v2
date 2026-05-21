@@ -63,7 +63,10 @@ class ServerController extends Controller
 
     public function edit(Server $server)
     {
-        $server->load('applications');
+        $server->load([
+            'applications',
+            'windowsServices' => fn ($query) => $query->where('is_monitored', true),
+        ]);
         return view('servers.edit', compact('server'));
     }
 

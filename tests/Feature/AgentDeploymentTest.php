@@ -2,6 +2,8 @@
 
 use App\Models\AgentDeploymentAudit;
 use App\Models\Server;
+use App\Models\User;
+use Spatie\Permission\Models\Permission;
 
 function deploymentServer(array $overrides = []): Server
 {
@@ -77,6 +79,26 @@ test('agent package includes required deployment files', function () {
     expect(AgentDeploymentAudit::where('server_id', $server->id)->where('action', 'package_downloaded')->exists())->toBeTrue();
 });
 
+test('agent deployment downloads require privileged permission', function () {
+    Permission::firstOrCreate(['name' => 'module.server_metrics']);
+    Permission::firstOrCreate(['name' => 'module.agent_deployment']);
+
+    $server = deploymentServer();
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo('module.server_metrics');
+
+    $this->actingAs($viewer)
+        ->get(route('servers.agent-config', $server))
+        ->assertForbidden();
+
+    $operator = User::factory()->create();
+    $operator->givePermissionTo('module.agent_deployment');
+
+    $this->actingAs($operator)
+        ->get(route('servers.agent-config', $server))
+        ->assertOk();
+});
+
 test('rotated server key invalidates old per server key', function () {
     $this->withoutMiddleware();
     config(['services.agent.key' => null]);
@@ -107,4 +129,27 @@ test('rotated server key invalidates old per server key', function () {
     ])->assertUnauthorized();
 
     expect(AgentDeploymentAudit::where('server_id', $server->id)->where('action', 'agent_key_rotated')->exists())->toBeTrue();
+});
+
+test('legacy global agent key can be disabled', function () {
+    config([
+        'services.agent.key' => 'legacy-shared-key',
+        'agent.global_api_key_enabled' => false,
+    ]);
+
+    deploymentServer();
+
+    $metricPayload = [
+        'server_id' => 'deploy-target-01',
+        'cpu' => 12.5,
+        'ram_used' => 4,
+        'ram_total' => 16,
+        'disk_used' => 40,
+        'disk_total' => 200,
+        'timestamp' => now()->toISOString(),
+    ];
+
+    $this->postJson('/api/metrics', $metricPayload, [
+        'X-API-Key' => 'legacy-shared-key',
+    ])->assertUnauthorized();
 });

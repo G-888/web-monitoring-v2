@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\ApplicationUrl;
 use App\Models\Monitor;
 use App\Models\CheckResult;
 use App\Jobs\CheckWebsiteJob;
@@ -64,6 +65,7 @@ class MonitorController extends Controller
         return view('monitors.create', [
             'prefillUrl' => request()->query('url'),
             'prefillName' => request()->query('name'),
+            'prefillApplicationUrlId' => request()->query('application_url_id'),
         ]);
     }
 
@@ -79,6 +81,7 @@ class MonitorController extends Controller
             'alert_emails' => 'nullable|string',
             'maintenance_starts_at' => 'nullable|date',
             'maintenance_ends_at' => 'nullable|date|after_or_equal:maintenance_starts_at',
+            'application_url_id' => 'nullable|integer|exists:application_urls,id',
         ]);
 
         $alertEmails = $request->alert_emails 
@@ -100,6 +103,21 @@ class MonitorController extends Controller
         ]);
 
         CheckWebsiteJob::dispatch($monitor, true);
+
+        if ($request->filled('application_url_id') && $request->user()?->can('module.application_mapping')) {
+            $applicationUrl = ApplicationUrl::find($request->integer('application_url_id'));
+
+            if ($applicationUrl) {
+                $applicationUrl->forceFill([
+                    'monitor_id' => $monitor->id,
+                    'url' => $monitor->url,
+                    'status' => 'unknown',
+                ])->save();
+
+                return redirect()->route('applications.show', $applicationUrl->application_id)
+                    ->with('success', 'Monitor added and linked to application URL.');
+            }
+        }
 
         return redirect()->route('dashboard')
             ->with('success', 'Monitor added successfully');

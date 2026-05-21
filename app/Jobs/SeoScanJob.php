@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Monitor;
+use App\Services\OutboundScanGuard;
 use App\Models\SeoScan;
 use App\Services\SeoScannerService;
 use Illuminate\Bus\Queueable;
@@ -17,11 +18,28 @@ class SeoScanJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(protected Monitor $monitor)
-    {}
+    public int $tries = 3;
+    public int $timeout = 180;
+    public array $backoff = [60, 120, 300];
 
-    public function handle(SeoScannerService $service): void
+    public function __construct(protected Monitor $monitor)
     {
+        $this->onQueue('security');
+    }
+
+    public function handle(SeoScannerService $service, OutboundScanGuard $scanGuard): void
+    {
+        try {
+            $scanGuard->assertAllowed($this->monitor->url);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('SEO scan blocked by outbound scan policy.', [
+                'monitor_id' => $this->monitor->id,
+                'url' => $this->monitor->url,
+            ]);
+
+            return;
+        }
+
         $result = $service->scan($this->monitor->url);
 
         // Store result

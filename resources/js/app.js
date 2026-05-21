@@ -4,6 +4,55 @@ import Alpine from 'alpinejs';
 window.Alpine = Alpine;
 Alpine.start();
 
+async function copyDeploymentText(button) {
+    const text = button.dataset.copyText || '';
+    const originalLabel = button.dataset.copyOriginalLabel || button.textContent.trim();
+
+    button.dataset.copyOriginalLabel = originalLabel;
+
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+        }
+
+        button.textContent = 'Copied';
+        button.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+        button.classList.remove('text-slate-700');
+
+        window.setTimeout(() => {
+            button.textContent = originalLabel;
+            button.classList.remove('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+            button.classList.add('text-slate-700');
+        }, 1800);
+    } catch (error) {
+        button.textContent = 'Copy failed';
+
+        window.setTimeout(() => {
+            button.textContent = originalLabel;
+        }, 2200);
+    }
+}
+
+document.addEventListener('click', function (event) {
+    const button = event.target.closest('[data-copy-text]');
+
+    if (!button) {
+        return;
+    }
+
+    copyDeploymentText(button);
+});
+
 
 if (window.Echo) {
     window.Echo.channel('monitors')

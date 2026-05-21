@@ -26,6 +26,13 @@ class Server extends Model
         'disk_threshold',
         'offline_threshold_seconds',
         'alert_cooldown_seconds',
+        'iis_http_500_warning_threshold',
+        'iis_http_500_critical_threshold',
+        'iis_http_404_warning_threshold',
+        'iis_http_404_critical_threshold',
+        'iis_suspicious_warning_threshold',
+        'iis_suspicious_critical_threshold',
+        'iis_alert_cooldown_seconds',
         'last_heartbeat_at',
         'maintenance_starts_at',
         'maintenance_ends_at',
@@ -65,6 +72,13 @@ class Server extends Model
         'cpu_threshold' => 'decimal:2',
         'ram_threshold' => 'decimal:2',
         'disk_threshold' => 'decimal:2',
+        'iis_http_500_warning_threshold' => 'integer',
+        'iis_http_500_critical_threshold' => 'integer',
+        'iis_http_404_warning_threshold' => 'integer',
+        'iis_http_404_critical_threshold' => 'integer',
+        'iis_suspicious_warning_threshold' => 'integer',
+        'iis_suspicious_critical_threshold' => 'integer',
+        'iis_alert_cooldown_seconds' => 'integer',
     ];
 
     public function latestMetric(): HasOne
@@ -114,6 +128,26 @@ class Server extends Model
     public function iisSuspiciousEvents(): HasMany
     {
         return $this->hasMany(IisSuspiciousEvent::class);
+    }
+
+    public function iisLogCollectorStatus(): HasOne
+    {
+        return $this->hasOne(IisLogCollectorStatus::class);
+    }
+
+    public function networkMonitors(): HasMany
+    {
+        return $this->hasMany(NetworkMonitor::class, 'source_server_id');
+    }
+
+    public function networkCheckResults(): HasMany
+    {
+        return $this->hasMany(NetworkCheckResult::class, 'source_server_id');
+    }
+
+    public function portBaselines(): HasMany
+    {
+        return $this->hasMany(ServerPortBaseline::class);
     }
 
     public function applications(): BelongsToMany

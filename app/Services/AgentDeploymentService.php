@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AgentDeploymentAudit;
+use App\Models\NetworkMonitor;
 use App\Models\Server;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -12,6 +13,10 @@ use ZipArchive;
 
 class AgentDeploymentService
 {
+    public function __construct(private readonly AgentProfileResolver $profileResolver)
+    {
+    }
+
     public function generatePlainKey(Server $server): string
     {
         $plainKey = 'srv_'.$server->server_id.'_'.Str::random(48);
@@ -36,15 +41,36 @@ class AgentDeploymentService
     public function buildConfig(Server $server, string $plainKey, array $options = []): array
     {
         $schemaVersion = $server->config_schema_version ?: config('agent.default_config_schema_version');
-        $featureFlags = $options['featureFlags'] ?? config('agent.feature_flags', []);
-        $windowsServices = $options['windowsServices'] ?? $this->defaultWindowsServices($server);
+        $profile = $options['profile'] ?? $this->profileResolver->resolve($server);
+        $featureFlags = array_replace(
+            config('agent.feature_flags', []),
+            (array) ($profile['featureFlags'] ?? []),
+            (array) ($options['featureFlags'] ?? [])
+        );
+        $windowsServices = $options['windowsServices'] ?? $this->profileWindowsServices($server, $profile);
         $autoUpdateEnabled = (bool) ($options['autoUpdateEnabled'] ?? config('agent.auto_update.enabled', false));
-        $iisLogs = $options['iisLogs'] ?? config('agent.iis_logs', []);
+        $iisLogs = array_replace(config('agent.iis_logs', []), (array) ($options['iisLogs'] ?? []));
+        $iisLogs['enabled'] = array_key_exists('enabled', $iisLogs)
+            ? (bool) $iisLogs['enabled']
+            : (bool) ($featureFlags['iisLogs'] ?? false);
+
+        if (! isset($options['iisLogs']['enabled'])) {
+            $iisLogs['enabled'] = (bool) ($featureFlags['iisLogs'] ?? false);
+        }
+
+        $networkChecks = $options['networkChecks'] ?? config('agent.network_checks', []);
+        $networkChecksEnabled = (bool) (($featureFlags['networkChecks'] ?? false) || ($networkChecks['enabled'] ?? false));
 
         return [
             'serverId' => $server->server_id,
             'serverName' => $server->name,
             'serverType' => $server->server_type,
+            'deploymentProfile' => [
+                'key' => $profile['profile_key'] ?? AgentProfileResolver::PROFILE_CUSTOM,
+                'name' => $profile['profile_name'] ?? AgentProfileResolver::deploymentProfiles()[AgentProfileResolver::PROFILE_CUSTOM],
+                'roles' => array_values((array) ($profile['roles'] ?? [])),
+                'applications' => array_values((array) ($profile['applications'] ?? [])),
+            ],
             'apiUrl' => url('/api/metrics'),
             'apiKey' => $plainKey,
             'configSchemaVersion' => $schemaVersion,
@@ -60,6 +86,18 @@ class AgentDeploymentService
                 'maxLinesPerRun' => (int) ($iisLogs['max_lines_per_run'] ?? $iisLogs['maxLinesPerRun'] ?? 5000),
                 'sendRawSamples' => (bool) ($iisLogs['send_raw_samples'] ?? $iisLogs['sendRawSamples'] ?? false),
                 'sampleLimit' => (int) ($iisLogs['sample_limit'] ?? $iisLogs['sampleLimit'] ?? 20),
+                'allowlist' => [
+                    'ipAddresses' => array_values((array) ($iisLogs['allowlist']['ip_addresses'] ?? $iisLogs['allowlist']['ipAddresses'] ?? [])),
+                    'urlPathContains' => array_values((array) ($iisLogs['allowlist']['url_path_contains'] ?? $iisLogs['allowlist']['urlPathContains'] ?? [])),
+                    'userAgents' => array_values((array) ($iisLogs['allowlist']['user_agents'] ?? $iisLogs['allowlist']['userAgents'] ?? [])),
+                ],
+            ],
+            'networkChecks' => [
+                'enabled' => $networkChecksEnabled,
+                'scanIntervalSeconds' => (int) ($networkChecks['scan_interval_seconds'] ?? $networkChecks['scanIntervalSeconds'] ?? 60),
+                'timeoutMs' => (int) ($networkChecks['timeout_ms'] ?? $networkChecks['timeoutMs'] ?? 3000),
+                'maxChecksPerRun' => (int) ($networkChecks['max_checks_per_run'] ?? $networkChecks['maxChecksPerRun'] ?? 50),
+                'checks' => $networkChecksEnabled ? $this->agentNetworkChecks($server) : [],
             ],
             'autoDiscoverWindowsServices' => true,
             'pollCommands' => true,
@@ -76,18 +114,12 @@ class AgentDeploymentService
 
     public function preview(Server $server): array
     {
-        return $this->buildConfig($server, '<generated-on-download>', [
-            'windowsServices' => $this->defaultWindowsServices($server),
-        ]);
+        return $this->buildConfig($server, '<generated-on-download>');
     }
 
     public function defaultWindowsServices(Server $server): array
     {
-        $configured = $server->windowsServices()
-            ->where('is_monitored', true)
-            ->orderBy('service_name')
-            ->pluck('service_name')
-            ->all();
+        $configured = $this->configuredWindowsServices($server);
 
         $template = config('agent.server_type_templates.'.($server->server_type ?: ''), []);
 
@@ -99,37 +131,91 @@ class AgentDeploymentService
             ->all();
     }
 
+    public function profile(Server $server): array
+    {
+        return $this->profileResolver->resolve($server);
+    }
+
+    public function profileWindowsServices(Server $server, ?array $profile = null): array
+    {
+        $profile ??= $this->profileResolver->resolve($server);
+
+        if (! ($profile['is_mapping_based'] ?? false)) {
+            return $this->defaultWindowsServices($server);
+        }
+
+        return collect($this->configuredWindowsServices($server))
+            ->merge((array) ($profile['windowsServices'] ?? []))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function agentNetworkChecks(Server $server): array
+    {
+        return NetworkMonitor::query()
+            ->where('source_type', NetworkMonitor::SOURCE_AGENT)
+            ->where('source_server_id', $server->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (NetworkMonitor $monitor) => [
+                'id' => $monitor->id,
+                'name' => $monitor->name,
+                'type' => $monitor->type,
+                'protocol' => $monitor->protocol ?: 'tcp',
+                'targetHost' => $monitor->target_host,
+                'targetPort' => $monitor->target_port,
+                'expectedState' => $monitor->expected_state ?: 'open',
+                'timeoutMs' => $monitor->timeout_ms ?: (int) config('agent.network_checks.timeout_ms', 3000),
+                'latencyThresholdMs' => $monitor->latency_threshold_ms,
+            ])
+            ->values()
+            ->all();
+    }
+
     public function normalizeOptions(Request $request, Server $server): array
     {
-        $featureFlags = config('agent.feature_flags', []);
+        $options = [];
 
         if ($request->has('featureFlags')) {
+            $profile = $this->profileResolver->resolve($server);
+            $baseFlags = array_replace(config('agent.feature_flags', []), (array) ($profile['featureFlags'] ?? []));
             $requestedFlags = (array) $request->input('featureFlags', []);
-            $featureFlags = collect($featureFlags)
+            $options['featureFlags'] = collect($baseFlags)
                 ->map(fn ($enabled, string $flag) => filter_var($requestedFlags[$flag] ?? false, FILTER_VALIDATE_BOOLEAN))
                 ->all();
         }
-
-        $services = $this->defaultWindowsServices($server);
 
         if ($request->filled('windowsServices')) {
             $raw = $request->input('windowsServices');
             $services = is_array($raw)
                 ? $raw
                 : preg_split('/\R|,/', (string) $raw);
-        }
 
-        return [
-            'featureFlags' => $featureFlags,
-            'windowsServices' => collect($services)
+            $options['windowsServices'] = collect($services)
                 ->map(fn ($service) => trim((string) $service))
                 ->filter()
                 ->unique()
                 ->values()
-                ->all(),
-            'autoUpdateEnabled' => $request->boolean('autoUpdateEnabled', config('agent.auto_update.enabled', false)),
-            'intervalSeconds' => (int) $request->input('intervalSeconds', 5),
-        ];
+                ->all();
+        }
+
+        if ($request->has('autoUpdateEnabled')) {
+            $options['autoUpdateEnabled'] = $request->boolean('autoUpdateEnabled', config('agent.auto_update.enabled', false));
+        }
+
+        if ($request->filled('intervalSeconds')) {
+            $options['intervalSeconds'] = (int) $request->input('intervalSeconds', 5);
+        }
+
+        $options['manualOverride'] = $request->has('featureFlags')
+            || $request->filled('windowsServices')
+            || $request->has('autoUpdateEnabled')
+            || $request->filled('intervalSeconds');
+
+        return $options;
     }
 
     public function createPackage(Server $server, array $config): string
@@ -254,11 +340,22 @@ POWERSHELL;
             'metadata' => $metadata,
             'ip_address' => $request?->ip(),
         ]);
+
+        app(AuditLogger::class)->log($action, $server, $metadata, $request);
     }
 
     private function hashKey(string $plainKey): string
     {
         return hash('sha256', $plainKey);
+    }
+
+    private function configuredWindowsServices(Server $server): array
+    {
+        return $server->windowsServices()
+            ->where('is_monitored', true)
+            ->orderBy('service_name')
+            ->pluck('service_name')
+            ->all();
     }
 
     private function readme(Server $server): string

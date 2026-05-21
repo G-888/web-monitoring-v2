@@ -23,6 +23,9 @@
                 @endif
             </div>
             <div class="flex flex-wrap gap-2">
+                @can('module.agent_deployment')
+                    <a href="{{ route('applications.agent-packages', $application) }}" onclick="return confirm('Generate packages for all mapped servers? This rotates each server agent key.');" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-500/10 transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100">Generate Agent Packages</a>
+                @endcan
                 <a href="{{ route('applications.edit', $application) }}" class="inline-flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/10 transition hover:bg-orange-500">Edit Mapping</a>
                 <a href="{{ route('applications.index') }}" class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">Applications</a>
             </div>
@@ -128,12 +131,28 @@
                                 </div>
                                 @if($url->monitor)
                                     <a href="{{ route('monitors.edit', $url->monitor) }}" class="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-                                        Link Monitor
+                                        Open Monitor
                                     </a>
                                 @elseif($url->url)
-                                    <a href="{{ route('monitors.create', ['url' => $url->url, 'name' => $application->name]) }}" class="inline-flex shrink-0 items-center justify-center rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500">
-                                        Create Monitor
-                                    </a>
+                                    <div class="flex shrink-0 flex-col gap-2 sm:w-56">
+                                        <a href="{{ route('monitors.create', ['url' => $url->url, 'name' => $application->name, 'application_url_id' => $url->id]) }}" class="inline-flex items-center justify-center rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500">
+                                            Create Monitor
+                                        </a>
+                                        @if($monitors->isNotEmpty())
+                                            <form method="POST" action="{{ route('application-urls.link-monitor', $url) }}" class="flex gap-2">
+                                                @csrf
+                                                <select name="monitor_id" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200">
+                                                    <option value="">Existing monitor</option>
+                                                    @foreach($monitors as $monitor)
+                                                        <option value="{{ $monitor->id }}">{{ $monitor->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                                                    Link
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
                         </div>

@@ -36,6 +36,33 @@
             </div>
         </section>
 
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div class="glass rounded-2xl p-5">
+                <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Collector</div>
+                <div class="mt-3 text-sm font-bold {{ $collectorStatus?->enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300' }}">
+                    {{ $collectorStatus?->enabled ? 'Enabled' : 'Disabled' }}
+                </div>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Last Scan</div>
+                <div class="mt-3 text-sm font-bold text-slate-900 dark:text-white">{{ $collectorStatus?->last_scan_at?->diffForHumans() ?? 'No scan' }}</div>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Files Read</div>
+                <div class="mt-3 text-sm font-bold text-slate-900 dark:text-white">{{ number_format((int) ($collectorStatus?->files_read ?? 0)) }} / {{ number_format((int) ($collectorStatus?->files_seen ?? 0)) }}</div>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Lines Read</div>
+                <div class="mt-3 text-sm font-bold text-slate-900 dark:text-white">{{ number_format((int) ($collectorStatus?->lines_read ?? 0)) }}</div>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Last Error</div>
+                <div class="mt-3 text-xs font-semibold {{ $collectorStatus?->last_error ? 'text-red-600 dark:text-red-300' : 'text-slate-600 dark:text-slate-300' }}" title="{{ $collectorStatus?->last_error }}">
+                    {{ $collectorStatus?->last_error ? Str::limit($collectorStatus->last_error, 90) : 'Clear' }}
+                </div>
+            </div>
+        </section>
+
         <section class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-sm dark:border-white/10 dark:bg-slate-900/70">
             <div class="mb-4">
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Recent Trend</h3>

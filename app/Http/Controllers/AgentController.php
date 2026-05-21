@@ -14,6 +14,7 @@ class AgentController extends Controller
         $servers = Server::with([
             'applications',
             'latestMetric',
+            'iisLogCollectorStatus',
             'windowsServices' => fn ($query) => $query->where('is_monitored', true),
         ])
             ->orderBy('group')
@@ -40,10 +41,20 @@ class AgentController extends Controller
         $options = $deployment->normalizeOptions($request, $server);
         $config = $deployment->buildConfig($server, $plainKey, $options);
         $deployment->audit($server, 'config_generated', [
-            'feature_flags' => $options['featureFlags'],
-            'windows_services' => $options['windowsServices'],
-            'auto_update' => $options['autoUpdateEnabled'],
+            'profile' => $config['deploymentProfile'] ?? null,
+            'feature_flags' => $config['featureFlags'],
+            'windows_services' => $config['windowsServices'],
+            'auto_update' => $config['autoUpdate']['enabled'] ?? false,
+            'manual_override' => (bool) ($options['manualOverride'] ?? false),
         ], $request);
+
+        if ($options['manualOverride'] ?? false) {
+            $deployment->audit($server, 'agent_profile_manual_override', [
+                'profile' => $config['deploymentProfile'] ?? null,
+                'feature_flags' => $config['featureFlags'],
+                'windows_services' => $config['windowsServices'],
+            ], $request);
+        }
 
         $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         $filename = "agent-config-{$server->server_id}.json";
@@ -67,10 +78,20 @@ class AgentController extends Controller
 
         $deployment->audit($server, 'package_downloaded', [
             'filename' => $filename,
-            'feature_flags' => $options['featureFlags'],
-            'windows_services' => $options['windowsServices'],
-            'auto_update' => $options['autoUpdateEnabled'],
+            'profile' => $config['deploymentProfile'] ?? null,
+            'feature_flags' => $config['featureFlags'],
+            'windows_services' => $config['windowsServices'],
+            'auto_update' => $config['autoUpdate']['enabled'] ?? false,
+            'manual_override' => (bool) ($options['manualOverride'] ?? false),
         ], $request);
+
+        if ($options['manualOverride'] ?? false) {
+            $deployment->audit($server, 'agent_profile_manual_override', [
+                'profile' => $config['deploymentProfile'] ?? null,
+                'feature_flags' => $config['featureFlags'],
+                'windows_services' => $config['windowsServices'],
+            ], $request);
+        }
 
         return response()->download($zipPath, $filename)->deleteFileAfterSend(true);
     }
@@ -107,8 +128,6 @@ class AgentController extends Controller
 
     public function preview(Server $server, AgentDeploymentService $deployment)
     {
-        return $deployment->buildConfig($server, '<generated-on-download>', [
-            'windowsServices' => $deployment->defaultWindowsServices($server),
-        ]);
+        return $deployment->buildConfig($server, '<generated-on-download>');
     }
 }

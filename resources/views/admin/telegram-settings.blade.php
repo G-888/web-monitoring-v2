@@ -91,10 +91,12 @@
                         <label for="bot_token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Bot Token
                         </label>
-                        <input type="text" name="bot_token" id="bot_token" value="{{ old('bot_token', $telegramSetting->bot_token ?? '') }}"
+                        <input type="text" name="bot_token" id="bot_token" value="{{ old('bot_token') }}"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                               placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Your Telegram bot token from @BotFather</p>
+                               placeholder="{{ $telegramSetting->bot_token ? 'Configured - leave blank to keep existing token' : '123456789:ABCdefGHIjklMNOpqrsTUVwxyz' }}">
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            {{ $telegramSetting->bot_token ? 'Bot token is configured. Re-enter a token only when replacing it.' : 'Your Telegram bot token from @BotFather' }}
+                        </p>
                     </div>
 
                     <!-- Chat ID -->

@@ -98,6 +98,10 @@
                         Asset Intelligence
                     </a>
                     @can('module.application_mapping')
+                        <a href="{{ route('clients.index') }}" class="sidebar-link {{ request()->routeIs('clients.*') || request()->routeIs('client-architecture.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 100-8 4 4 0 000 8zm6 2a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+                            Clients
+                        </a>
                         <a href="{{ route('applications.index') }}" class="sidebar-link {{ request()->routeIs('applications.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                             <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
                             Applications
@@ -123,6 +127,16 @@
                             Database Monitors
                         </a>
                     @endcan
+                    @can('module.network_monitoring')
+                        <a href="{{ route('network-monitors.index') }}" class="sidebar-link {{ request()->routeIs('network-monitors.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8m-9 6h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            Network Monitors
+                        </a>
+                        <a href="{{ route('network-map.index') }}" class="sidebar-link {{ request()->routeIs('network-map.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6zM10 10l4-3m-4 3l4 7"></path></svg>
+                            Network Map
+                        </a>
+                    @endcan
                     @if(auth()->user()?->hasRole('Super Admin'))
                         <a href="{{ route('server-logs.index') }}" class="sidebar-link {{ request()->routeIs('server-logs.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
                             <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -130,6 +144,21 @@
                         </a>
                     @endif
                 </div>
+
+                <!-- Report Category -->
+                @can('module.reports.view')
+                    <div class="space-y-1">
+                        <div class="px-4 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Report</div>
+                        <a href="{{ route('reports.maintenance.index') }}" class="sidebar-link {{ request()->routeIs('reports.maintenance.index') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m4 6V7m4 10v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H7L3 7v12a2 2 0 002 2z"></path></svg>
+                            Maintenance Reports
+                        </a>
+                        <a href="{{ route('reports.maintenance.history') }}" class="sidebar-link {{ request()->routeIs('reports.maintenance.history') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                            <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Report History
+                        </a>
+                    </div>
+                @endcan
 
                 <!-- System Category -->
                 <div class="space-y-1">

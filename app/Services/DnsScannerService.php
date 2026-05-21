@@ -158,15 +158,37 @@ class DnsScannerService
             $baselineStatus = $baselineResponse->status(); $baselineBody = $baselineResponse->body();
         } catch (\Exception $e) {}
 
-        $paths = ['/.env' => 'Environment Leak', '/.git/config' => 'Git Repository', '/phpinfo.php' => 'Info Leak', '/admin' => 'Admin Panel'];
+        $paths = [
+            '/.env' => ['description' => 'Environment file leak', 'severity' => 'CRITICAL', 'signature' => '/(?:APP_KEY|DB_PASSWORD|AWS_SECRET_ACCESS_KEY|MAIL_PASSWORD)=/i'],
+            '/.git/config' => ['description' => 'Git repository config leak', 'severity' => 'CRITICAL', 'signature' => '/\\[core\\]|repositoryformatversion|\\[remote\\s+"origin"\\]/i'],
+            '/phpinfo.php' => ['description' => 'PHP information disclosure', 'severity' => 'WARNING', 'signature' => '/phpinfo\\(\\)|PHP Version|Loaded Configuration File/i'],
+            '/admin' => ['description' => 'Admin route reachable', 'severity' => 'INFO', 'signature' => '/admin|login|sign in|dashboard/i'],
+        ];
         $discovered = []; $activity = [];
-        foreach ($paths as $path => $desc) {
+        foreach ($paths as $path => $rule) {
             try {
                 $response = Http::timeout(0.5)->withoutVerifying()->get($url . $path);
                 $isFalse = ($response->successful() && $baselineStatus === 200 && $response->body() === $baselineBody);
-                $activity[] = ['path' => $path, 'status' => $response->status(), 'result' => $isFalse ? 'Filtered' : ($response->successful() ? 'EXPOSED' : 'Secure'), 'severity' => $isFalse ? 'info' : ($response->successful() ? 'critical' : 'success')];
-                if ($response->successful() && !$isFalse) { $discovered[] = ['path' => $path, 'description' => $desc, 'status' => $response->status(), 'severity' => 'CRITICAL']; }
-                elseif ($response->status() === 403) { $discovered[] = ['path' => $path, 'description' => $desc, 'status' => $response->status(), 'severity' => 'WARNING']; }
+                $body = $response->body();
+                $matchesSensitiveSignature = $response->successful() && preg_match($rule['signature'], $body) === 1;
+                $isExposed = $matchesSensitiveSignature && ! $isFalse;
+                $isBlocked = in_array($response->status(), [401, 403], true);
+
+                $activity[] = [
+                    'path' => $path,
+                    'status' => $response->status(),
+                    'result' => $isFalse ? 'Filtered' : ($isExposed ? 'EXPOSED' : ($isBlocked ? 'Blocked' : 'Secure')),
+                    'severity' => $isFalse ? 'info' : ($isExposed ? strtolower($rule['severity']) : ($isBlocked ? 'info' : 'success')),
+                ];
+
+                if ($isExposed) {
+                    $discovered[] = [
+                        'path' => $path,
+                        'description' => $rule['description'],
+                        'status' => $response->status(),
+                        'severity' => $rule['severity'],
+                    ];
+                }
             } catch (\Exception $e) { $activity[] = ['path' => $path, 'status' => 'Timeout', 'result' => 'Skipped', 'severity' => 'info']; }
         }
         return ['discovered' => $discovered, 'activity' => $activity];

@@ -39,3 +39,23 @@
         @apply text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white;
     }
 }
+
+html:not(.dark) main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),
+html:not(.dark) main textarea,
+html:not(.dark) main select {
+    background-color: rgb(255 255 255) !important;
+    border-color: rgb(203 213 225) !important;
+    color: rgb(15 23 42) !important;
+}
+
+html:not(.dark) main input::placeholder,
+html:not(.dark) main textarea::placeholder {
+    color: rgb(100 116 139) !important;
+    opacity: 1;
+}
+
+html:not(.dark) main input[type="checkbox"],
+html:not(.dark) main input[type="radio"] {
+    background-color: rgb(255 255 255);
+    border-color: rgb(203 213 225);
+}

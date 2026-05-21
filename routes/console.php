@@ -20,6 +20,9 @@ Schedule::call(function () {
     }
 })->everyFiveMinutes();
 
+// Lightweight network monitoring; only configured targets and baseline ports are checked.
+Schedule::command('app:run-network-checks')->everyFiveMinutes();
+
 // SEO Poisoning Detection
 Schedule::command('app:run-seo-checks')->hourly();
 Schedule::command('app:run-internal-crawl')->daily();

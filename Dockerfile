@@ -68,6 +68,10 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . .
 
+# Never bake host-generated Laravel caches into the production image. The
+# container must cache config/routes/views from its own environment.
+RUN rm -f /var/www/html/bootstrap/cache/*.php
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 

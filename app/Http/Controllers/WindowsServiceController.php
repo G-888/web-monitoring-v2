@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Server;
 use App\Models\WindowsService;
 use App\Models\WindowsServiceCommand;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -39,7 +40,7 @@ class WindowsServiceController extends Controller
         return back()->with('success', 'Windows service added to monitoring.');
     }
 
-    public function command(Request $request, WindowsService $windowsService): RedirectResponse
+    public function command(Request $request, WindowsService $windowsService, AuditLogger $auditLogger): RedirectResponse
     {
         abort_unless($request->user()?->can('module.service_control'), 403);
 
@@ -47,12 +48,20 @@ class WindowsServiceController extends Controller
             'action' => ['required', 'in:start,stop,restart'],
         ]);
 
-        WindowsServiceCommand::create([
+        $command = WindowsServiceCommand::create([
             'server_id' => $windowsService->server_id,
             'windows_service_id' => $windowsService->id,
+            'requested_by' => $request->user()?->id,
+            'request_ip' => $request->ip(),
             'service_name' => $windowsService->service_name,
             'action' => $validated['action'],
         ]);
+
+        $auditLogger->log('service_control_action', $command, [
+            'server_id' => $windowsService->server_id,
+            'service_name' => $windowsService->service_name,
+            'action' => $validated['action'],
+        ], $request);
 
         return back()->with('success', ucfirst($validated['action']) . ' command queued for ' . $windowsService->service_name . '.');
     }

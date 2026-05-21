@@ -29,9 +29,14 @@ class RoleAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'module.advanced_monitors']);
         Permission::firstOrCreate(['name' => 'module.server_metrics']);
         Permission::firstOrCreate(['name' => 'module.service_control']);
+        Permission::firstOrCreate(['name' => 'module.agent_deployment']);
         Permission::firstOrCreate(['name' => 'module.database_monitoring']);
         Permission::firstOrCreate(['name' => 'module.log_ingestion']);
         Permission::firstOrCreate(['name' => 'module.application_mapping']);
+        Permission::firstOrCreate(['name' => 'module.network_monitoring']);
+        Permission::firstOrCreate(['name' => 'module.reports.view']);
+        Permission::firstOrCreate(['name' => 'module.reports.generate']);
+        Permission::firstOrCreate(['name' => 'module.reports.download']);
 
         // Create roles and assign created permissions
         
@@ -44,7 +49,11 @@ class RoleAndPermissionSeeder extends Seeder
             'create monitors',
             'edit monitors',
             'view logs',
-            'analyze logs'
+            'analyze logs',
+            'module.reports.view',
+            'module.reports.generate',
+            'module.reports.download',
+            'module.network_monitoring',
         ]);
 
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);

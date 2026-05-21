@@ -18,8 +18,13 @@ class CheckDatabaseConnection implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+    public int $timeout = 30;
+    public array $backoff = [30, 60, 120];
+
     public function __construct(public DatabaseMonitor $databaseMonitor, public bool $force = false)
     {
+        $this->onQueue('checks');
     }
 
     public function handle(): void
@@ -46,7 +51,7 @@ class CheckDatabaseConnection implements ShouldQueue
                     PDO::ATTR_TIMEOUT => 5,
                 ]
             );
-            $pdo->query($this->probeQuery($monitor->driver));
+            $pdo->query($this->probeQuery($monitor));
             $pdo = null;
             $isUp = true;
         } catch (Throwable $e) {
@@ -100,9 +105,13 @@ class CheckDatabaseConnection implements ShouldQueue
         }
     }
 
-    private function probeQuery(string $driver): string
+    private function probeQuery(DatabaseMonitor $monitor): string
     {
-        return match ($driver) {
+        if (filled($monitor->default_query)) {
+            return $monitor->default_query;
+        }
+
+        return match ($monitor->driver) {
             'pgsql' => 'select 1',
             default => 'select 1',
         };

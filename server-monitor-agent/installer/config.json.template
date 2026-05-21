@@ -14,6 +14,7 @@
     "backupMonitoring": false,
     "scheduledJobs": false,
     "iisLogs": false,
+    "networkChecks": false,
     "coldfusionLogs": false,
     "fileIntegrity": false
   },
@@ -26,7 +27,19 @@
     "summaryOnly": true,
     "maxLinesPerRun": 5000,
     "sendRawSamples": false,
-    "sampleLimit": 20
+    "sampleLimit": 20,
+    "allowlist": {
+      "ipAddresses": [],
+      "urlPathContains": [],
+      "userAgents": []
+    }
+  },
+  "networkChecks": {
+    "enabled": false,
+    "scanIntervalSeconds": 60,
+    "timeoutMs": 3000,
+    "maxChecksPerRun": 50,
+    "checks": []
   },
   "capabilities": [],
   "config_schema_version": "1.0.0"

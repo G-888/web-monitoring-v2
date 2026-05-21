@@ -4,30 +4,26 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DatabaseMonitorController;
 use App\Http\Controllers\IncidentController;
 use App\Http\Controllers\IisLogController;
+use App\Http\Controllers\ApplicationUrlController;
+use App\Http\Controllers\ClientArchitectureWizardController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ArchitectureReviewController;
 use App\Http\Controllers\LogInspectionController;
+use App\Http\Controllers\MaintenanceReportController;
 use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\ServerResourcesController;
+use App\Http\Controllers\DatabaseMonitorGuidedSetupController;
 use App\Http\Controllers\SslMonitorController;
 use App\Http\Controllers\SslConversionController;
+use App\Http\Controllers\StatusController;
 use App\Http\Controllers\WindowsServiceController;
-use App\Models\Monitor;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect('/login');
-});
+Route::redirect('/', '/login');
 
-Route::get('/status', function () {
-    $monitors = Monitor::with('latestResult')->get();
-
-    foreach ($monitors as $monitor) {
-        $monitor->uptime_24h = $monitor->uptimePercentage(24);
-    }
-
-    return view('status', compact('monitors'));
-})->name('status');
+Route::get('/status', [StatusController::class, 'index'])->name('status');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [MonitorController::class, 'index'])
@@ -112,6 +108,43 @@ Route::middleware(['auth'])->group(function () {
             ->name('database-monitors.destroy');
         Route::post('/database-monitors/{databaseMonitor}/test', [DatabaseMonitorController::class, 'test'])
             ->name('database-monitors.test');
+        Route::get('/database-monitors/{databaseMonitor}/guided-setup', [DatabaseMonitorGuidedSetupController::class, 'edit'])
+            ->name('database-monitors.guided-setup');
+        Route::patch('/database-monitors/{databaseMonitor}/guided-setup', [DatabaseMonitorGuidedSetupController::class, 'update'])
+            ->name('database-monitors.guided-setup.update');
+        Route::post('/database-monitors/{databaseMonitor}/guided-setup/test', [DatabaseMonitorGuidedSetupController::class, 'test'])
+            ->name('database-monitors.guided-setup.test');
+        Route::post('/database-monitors/{databaseMonitor}/guided-setup/enable', [DatabaseMonitorGuidedSetupController::class, 'enable'])
+            ->name('database-monitors.guided-setup.enable');
+    });
+
+    Route::middleware(['can:module.network_monitoring'])->group(function () {
+        Route::get('/network-monitors', [\App\Http\Controllers\NetworkMonitorController::class, 'index'])
+            ->name('network-monitors.index');
+        Route::get('/network-map', [\App\Http\Controllers\NetworkMonitorController::class, 'map'])
+            ->name('network-map.index');
+        Route::get('/network-monitors/create', [\App\Http\Controllers\NetworkMonitorController::class, 'create'])
+            ->name('network-monitors.create');
+        Route::post('/network-monitors', [\App\Http\Controllers\NetworkMonitorController::class, 'store'])
+            ->name('network-monitors.store');
+        Route::get('/network-monitors/{networkMonitor}', [\App\Http\Controllers\NetworkMonitorController::class, 'show'])
+            ->name('network-monitors.show');
+        Route::get('/network-monitors/{networkMonitor}/edit', [\App\Http\Controllers\NetworkMonitorController::class, 'edit'])
+            ->name('network-monitors.edit');
+        Route::patch('/network-monitors/{networkMonitor}', [\App\Http\Controllers\NetworkMonitorController::class, 'update'])
+            ->name('network-monitors.update');
+        Route::delete('/network-monitors/{networkMonitor}', [\App\Http\Controllers\NetworkMonitorController::class, 'destroy'])
+            ->name('network-monitors.destroy');
+        Route::post('/network-monitors/{networkMonitor}/check', [\App\Http\Controllers\NetworkMonitorController::class, 'check'])
+            ->name('network-monitors.check');
+        Route::post('/server-port-baselines', [\App\Http\Controllers\ServerPortBaselineController::class, 'store'])
+            ->name('server-port-baselines.store');
+        Route::post('/server-port-baselines/{serverPortBaseline}/check', [\App\Http\Controllers\ServerPortBaselineController::class, 'check'])
+            ->name('server-port-baselines.check');
+        Route::post('/server-port-baselines/apply-template', [\App\Http\Controllers\ServerPortBaselineController::class, 'applyTemplate'])
+            ->name('server-port-baselines.apply-template');
+        Route::delete('/server-port-baselines/{serverPortBaseline}', [\App\Http\Controllers\ServerPortBaselineController::class, 'destroy'])
+            ->name('server-port-baselines.destroy');
     });
 
     Route::get('/server-logs/scan', [\App\Http\Controllers\ServerLogScannerController::class, 'index'])
@@ -140,6 +173,21 @@ Route::middleware(['auth'])->group(function () {
             ->name('iis-logs.index');
         Route::get('/iis-logs/servers/{server}', [IisLogController::class, 'show'])
             ->name('iis-logs.show');
+    });
+
+    Route::prefix('reports/maintenance')->name('reports.maintenance.')->group(function () {
+        Route::get('/', [MaintenanceReportController::class, 'index'])
+            ->middleware('can:module.reports.view')
+            ->name('index');
+        Route::get('/history', [MaintenanceReportController::class, 'history'])
+            ->middleware('can:module.reports.view')
+            ->name('history');
+        Route::post('/', [MaintenanceReportController::class, 'generate'])
+            ->middleware('can:module.reports.generate')
+            ->name('generate');
+        Route::get('/{maintenanceReport}/download', [MaintenanceReportController::class, 'download'])
+            ->middleware('can:module.reports.download')
+            ->name('download');
     });
 
     Route::post('/log-inspections', [LogInspectionController::class, 'store'])
@@ -177,6 +225,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/seo-security', [App\Http\Controllers\SeoSecurityController::class, 'index'])->name('seo-security.index');
     Route::post('/seo-security/scan', [App\Http\Controllers\SeoSecurityController::class, 'scan'])->name('seo-security.scan');
+    Route::post('/seo-security/scan-all', [App\Http\Controllers\SeoSecurityController::class, 'scanAll'])->name('seo-security.scan-all');
     Route::post('/seo-security/webshell-scan', [App\Http\Controllers\SeoSecurityController::class, 'webshellScan'])->name('seo-security.webshell-scan');
 
     // Asset Intelligence
@@ -252,17 +301,30 @@ Route::middleware(['auth'])->group(function () {
     
     // Application mapping and dashboards
     Route::middleware(['can:module.application_mapping'])->group(function () {
+        Route::resource('clients', ClientController::class);
+        Route::get('/client-architecture/setup', [ClientArchitectureWizardController::class, 'create'])->name('client-architecture.setup');
+        Route::post('/client-architecture/setup', [ClientArchitectureWizardController::class, 'store'])->name('client-architecture.setup.store');
+        Route::get('/applications/{application}/architecture-review', [ArchitectureReviewController::class, 'show'])->name('applications.architecture-review');
         Route::get('/applications', [\App\Http\Controllers\ApplicationController::class, 'index'])->name('applications.index');
+        Route::get('/applications/setup', [\App\Http\Controllers\ApplicationSetupWizardController::class, 'create'])->name('applications.setup');
+        Route::post('/applications/setup', [\App\Http\Controllers\ApplicationSetupWizardController::class, 'store'])->name('applications.setup.store');
         Route::get('/applications/create', [\App\Http\Controllers\ApplicationController::class, 'create'])->name('applications.create');
         Route::post('/applications', [\App\Http\Controllers\ApplicationController::class, 'store'])->name('applications.store');
         Route::get('/applications/{application}/edit', [\App\Http\Controllers\ApplicationController::class, 'edit'])->name('applications.edit');
         Route::patch('/applications/{application}', [\App\Http\Controllers\ApplicationController::class, 'update'])->name('applications.update');
+        Route::get('/applications/{application}/agent-packages', [\App\Http\Controllers\ApplicationSetupWizardController::class, 'downloadApplicationPackages'])
+            ->middleware('can:module.agent_deployment')
+            ->name('applications.agent-packages');
         Route::get('/applications/{application}', [\App\Http\Controllers\ApplicationController::class, 'show'])->name('applications.show');
+        Route::post('/application-urls/{applicationUrl}/link-monitor', [ApplicationUrlController::class, 'linkMonitor'])->name('application-urls.link-monitor');
     });
 
     // Agent operations
     Route::middleware(['can:module.server_metrics'])->group(function () {
         Route::get('/agents', [\App\Http\Controllers\AgentController::class, 'index'])->name('agents.index');
+    });
+
+    Route::middleware(['can:module.agent_deployment'])->group(function () {
         Route::get('/agents/{server}/config', [\App\Http\Controllers\AgentController::class, 'downloadConfig'])->name('agents.config');
         Route::get('/servers/{server}/agent-config', [\App\Http\Controllers\AgentController::class, 'downloadConfig'])->name('servers.agent-config');
         Route::get('/servers/{server}/agent-package', [\App\Http\Controllers\AgentController::class, 'downloadPackage'])->name('servers.agent-package');
@@ -278,6 +340,8 @@ Route::prefix('api')->group(function () {
     Route::post('/metrics', [\App\Http\Controllers\Api\MetricsController::class, 'store'])
         ->withoutMiddleware([VerifyCsrfToken::class]);
     Route::post('/iis-logs/summary', [\App\Http\Controllers\Api\IisLogSummaryController::class, 'store'])
+        ->withoutMiddleware([VerifyCsrfToken::class]);
+    Route::post('/network-checks/results', [\App\Http\Controllers\Api\NetworkCheckResultController::class, 'store'])
         ->withoutMiddleware([VerifyCsrfToken::class]);
 });
 

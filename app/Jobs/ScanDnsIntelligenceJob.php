@@ -9,22 +9,40 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Monitor;
 use App\Services\DnsScannerService;
+use App\Services\OutboundScanGuard;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class ScanDnsIntelligenceJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $tries = 3;
+    public int $timeout = 120;
+    public array $backoff = [60, 120, 300];
+
     protected $monitor;
 
     public function __construct(Monitor $monitor)
     {
+        $this->onQueue('security');
         $this->monitor = $monitor;
     }
 
-    public function handle(DnsScannerService $service)
+    public function handle(DnsScannerService $service, OutboundScanGuard $scanGuard)
     {
         $domain = parse_url($this->monitor->url, PHP_URL_HOST) ?: $this->monitor->url;
+
+        try {
+            $scanGuard->assertAllowed($domain);
+        } catch (ValidationException) {
+            Log::warning('DNS intelligence scan blocked by outbound scan policy.', [
+                'monitor_id' => $this->monitor->id,
+                'domain' => $domain,
+            ]);
+
+            return;
+        }
         
         // 1. Scan DNS Records
         $records = $service->scanDns($domain);

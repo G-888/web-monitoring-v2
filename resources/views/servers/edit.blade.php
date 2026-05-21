@@ -3,6 +3,13 @@
         <h2 class="text-xl font-semibold">Edit Server</h2>
     </x-slot>
 
+    @php
+        $agentProfile = app(\App\Services\AgentDeploymentService::class)->profile($server);
+        $profileServices = app(\App\Services\AgentDeploymentService::class)->profileWindowsServices($server, $agentProfile);
+        $enabledModules = collect($agentProfile['enabledModules'] ?? [])->values();
+        $serverRoles = collect($agentProfile['roles'] ?? [])->values();
+    @endphp
+
     <div class="mx-auto max-w-2xl">
         <div class="mt-6 rounded-lg glass p-6">
             <form method="POST" action="{{ route('servers.update', $server) }}" class="space-y-6">
@@ -80,28 +87,28 @@
                             type="checkbox"
                             name="is_active"
                             value="1"
-                            class="rounded border-white/10 bg-white/5 text-blue-500 focus:ring-blue-500"
+                            class="rounded border-slate-300 bg-white text-blue-500 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5"
                             {{ old('is_active', $server->is_active) ? 'checked' : '' }}
                         />
-                        <span class="text-sm text-slate-200">Enable server in inventory</span>
+                        <span class="text-sm text-slate-700 dark:text-slate-200">Enable server in inventory</span>
                     </label>
                 </div>
 
-                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h3 class="text-sm font-semibold text-slate-100">Threshold Alerts</h3>
-                            <p class="mt-1 text-xs text-slate-400">Alerts are sent to active Super Admin alert channels.</p>
+                            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Threshold Alerts</h3>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Alerts are sent to active Super Admin alert channels.</p>
                         </div>
                         <label class="flex items-center gap-2">
                             <input
                                 type="checkbox"
                                 name="alerts_enabled"
                                 value="1"
-                                class="rounded border-white/10 bg-white/5 text-blue-500 focus:ring-blue-500"
+                                class="rounded border-slate-300 bg-white text-blue-500 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5"
                                 {{ old('alerts_enabled', $server->alerts_enabled) ? 'checked' : '' }}
                             />
-                            <span class="text-sm text-slate-200">Enable alerts</span>
+                            <span class="text-sm text-slate-700 dark:text-slate-200">Enable alerts</span>
                         </label>
                     </div>
 
@@ -137,9 +144,9 @@
                     </div>
                 </div>
 
-                    <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-                        <h3 class="text-sm font-semibold text-slate-100">Maintenance window</h3>
-                        <p class="mt-1 text-xs text-slate-400">When active, alerts are suppressed and server downtime is treated as expected.</p>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Maintenance window</h3>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">When active, alerts are suppressed and server downtime is treated as expected.</p>
                         <div class="mt-4 grid gap-4 md:grid-cols-2">
                             <div class="space-y-2">
                                 <x-input-label for="maintenance_starts_at" :value="__('Starts at')" />
@@ -154,11 +161,11 @@
                         </div>
                     </div>
 
-                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <h3 class="text-sm font-semibold text-slate-100">Agent Install Settings</h3>
-                            <p class="mt-1 text-xs text-slate-400">Download config or copy a ready-to-run install/update command.</p>
+                            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Agent Install Settings</h3>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Download config or copy a ready-to-run install/update command.</p>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             <a href="{{ route('agents.config', $server) }}" class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">Download config</a>
@@ -173,12 +180,12 @@
                     <div class="mt-3 overflow-x-auto rounded border border-white/10 bg-slate-950 p-3 text-xs text-slate-200">
 <pre id="update-command">powershell -NoProfile -ExecutionPolicy Bypass -Command "& { Stop-Service ServerMonitorAgent; Copy-Item -Path '.\\dist\\server-monitor-agent-new.exe' -Destination 'C:\\Program Files\\ServerMonitorAgent\\server-monitor-agent.exe' -Force; Start-Service ServerMonitorAgent }"</pre>
                     </div>
-                    <p class="mt-3 text-xs text-slate-400">Copy these PowerShell commands and paste them into an elevated PowerShell window.</p>
+                    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">Copy these PowerShell commands and paste them into an elevated PowerShell window.</p>
                 </div>
 
-                    <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-                        <h3 class="text-sm font-semibold text-slate-100">Agent Reported Info</h3>
-                        <div class="mt-2 text-sm text-slate-200">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Agent Reported Info</h3>
+                        <div class="mt-2 text-sm text-slate-700 dark:text-slate-200">
                             <div>Version: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_version ?? 'Not reported' }}</span></div>
                             <div>Config schema: <span class="font-medium text-slate-900 dark:text-white">{{ $server->config_schema_version ?? '—' }}</span></div>
                             <div>Hostname: <span class="font-medium text-slate-900 dark:text-white">{{ $server->agent_hostname ?? '—' }}</span></div>
@@ -188,8 +195,46 @@
                         </div>
                     </div>
 
-                <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-                    <h3 class="text-sm font-semibold text-slate-100">Used by Applications</h3>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Resolved Agent Profile</h3>
+                        <div class="mt-3 space-y-3 text-sm text-slate-700 dark:text-slate-200">
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Deployment profile</div>
+                                <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ $agentProfile['profile_name'] }}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Roles</div>
+                                <div class="mt-1 flex flex-wrap gap-1.5">
+                                    @forelse($serverRoles as $role)
+                                        <span class="rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">{{ str_replace('_', ' ', $role) }}</span>
+                                    @empty
+                                        <span class="text-xs text-slate-500 dark:text-slate-400">No mapped application roles.</span>
+                                    @endforelse
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Enabled agent modules</div>
+                                <div class="mt-1 flex flex-wrap gap-1.5">
+                                    @foreach($enabledModules as $module)
+                                        <span class="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">{{ $module }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Monitored services</div>
+                                <div class="mt-1 flex flex-wrap gap-1.5">
+                                    @forelse($profileServices as $service)
+                                        <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-white/5 dark:text-slate-300">{{ $service }}</span>
+                                    @empty
+                                        <span class="text-xs text-slate-500 dark:text-slate-400">No services selected.</span>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Used by Applications</h3>
                     @if($server->applications->isEmpty())
                         <p class="text-sm text-slate-400">This server is not assigned to any application.</p>
                     @else
@@ -206,7 +251,7 @@
                 </div>
 
                 <div class="flex items-center justify-between gap-3 pt-2">
-                    <a href="{{ route('servers.index') }}" class="inline-flex items-center justify-center rounded border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">
+                    <a href="{{ route('servers.index') }}" class="inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10">
                         Cancel
                     </a>
                     <x-primary-button>
@@ -219,8 +264,8 @@
         <div class="mt-6 rounded-lg glass p-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h3 class="text-sm font-semibold text-slate-100">Agent Deployment Generator</h3>
-                    <p class="mt-1 text-xs text-slate-400">Preview config options, download a keyed package, or rotate this server's agent key.</p>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Agent Deployment Generator</h3>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Preview config options, download a keyed package, or rotate this server's agent key.</p>
                 </div>
             </div>
             <div class="mt-4">
@@ -242,13 +287,5 @@
             });
     }
 
-    document.addEventListener('click', function (event) {
-        const button = event.target.closest('[data-copy-text]');
-        if (!button) {
-            return;
-        }
-
-        navigator.clipboard.writeText(button.dataset.copyText || '');
-    });
 </script>
 </x-app-layout>

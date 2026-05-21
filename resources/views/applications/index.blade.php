@@ -7,9 +7,14 @@
                 <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Application Mapping</h2>
                 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Application health from URLs, mapped server roles, and minimum component rules.</p>
             </div>
-            <a href="{{ route('applications.create') }}" class="inline-flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/10 transition hover:bg-orange-500">
-                Create Application
-            </a>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('applications.setup') }}" class="inline-flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/10 transition hover:bg-orange-500">
+                    Setup Wizard
+                </a>
+                <a href="{{ route('applications.create') }}" class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                    Create Application
+                </a>
+            </div>
         </div>
 
         @php
